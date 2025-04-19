@@ -17,20 +17,14 @@ export class MqttClient {
     this.client = this.setupClient();
   }
 
-  /**
-   * Set up the MQTT client
-   *
-   * @returns The MQTT client
-   */
   private setupClient(): mqtt.MqttClient {
     const options = {
       clientId: this.config.clientId,
       username: this.config.username,
       password: this.config.password,
       clean: true,
-      reconnectPeriod: 5000, // Reconnect every 5 seconds
-      connectTimeout: 30000, // 30 seconds timeout
-      // Set up last will message for availability
+      reconnectPeriod: 5000,
+      connectTimeout: 30000,
       will: {
         topic: `hame_energy/availability`,
         payload: 'offline',
@@ -39,9 +33,7 @@ export class MqttClient {
       },
     };
 
-    console.log(
-      `Connecting to MQTT broker at ${this.config.brokerUrl} with client ID ${this.config.clientId}`,
-    );
+    console.log(`Connecting to MQTT broker at ${this.config.brokerUrl} with client ID ${this.config.clientId}`);
     console.log(`MQTT username: ${this.config.username ? this.config.username : 'not provided'}`);
     console.log(`MQTT password: ${this.config.password ? '******' : 'not provided'}`);
 
@@ -57,16 +49,11 @@ export class MqttClient {
     return client;
   }
 
-  /**
-   * Handle MQTT connect event
-   */
   private handleConnect(): void {
     console.log('Connected to MQTT broker');
 
-    // Publish global availability status
     this.publish('hame_energy/availability', 'online', { qos: 1, retain: true });
 
-    // For each device, subscribe to topics and set up polling
     this.deviceManager.getDevices().forEach(device => {
       const topics = this.deviceManager.getDeviceTopics(device);
 
@@ -74,13 +61,19 @@ export class MqttClient {
         console.error(`No topics found for device ${device.deviceId}`);
         return;
       }
+
       this.subscribe(topics.deviceTopic);
       this.subscribeToControlTopics(device);
       this.publish(topics.availabilityTopic, 'offline', { qos: 1, retain: true });
       this.publishDiscoveryConfigs(device);
+
+      const flatState = this.deviceManager.getFlattenedDeviceState(device);
+      const dataTopic = `${topics.publishTopic}/data`;
+      this.publish(dataTopic, JSON.stringify(flatState), { qos: 1 }).catch(err => {
+        console.error(`Error publishing initial device data for ${device.deviceId}:`, err);
+      });
     });
 
-    // Set up periodic polling to trigger device data
     this.setupPeriodicPolling();
   }
 
@@ -99,11 +92,6 @@ export class MqttClient {
     return additionalDeviceInfo;
   }
 
-  /**
-   * Subscribe to a topic
-   *
-   * @param topic - The topic to subscribe to
-   */
   subscribe(topic: string | string[]): void {
     this.client.subscribe(topic, err => {
       if (err) {
@@ -114,24 +102,11 @@ export class MqttClient {
     });
   }
 
-  /**
-   * Subscribe to control topics for a device
-   *
-   * @param device - The device configuration
-   */
   private subscribeToControlTopics(device: any): void {
     const controlTopics = this.deviceManager.getControlTopics(device);
     this.subscribe(controlTopics);
   }
 
-  /**
-   * Publish a message to a topic
-   *
-   * @param topic - The topic to publish to
-   * @param message - The message to publish
-   * @param options - MQTT publish options
-   * @returns Promise that resolves when the message is published
-   */
   publish(topic: string, message: string, options: mqtt.IClientPublishOptions = {}): Promise<void> {
     return new Promise((resolve, reject) => {
       this.client.publish(topic, message, options, err => {
@@ -140,49 +115,39 @@ export class MqttClient {
           reject(err);
           return;
         }
-        console.log(
-          `Published to ${topic}: ${message.length > 100 ? message.substring(0, 100) + '...' : message}`,
-        );
+        console.log(`Published to ${topic}: ${message.length > 100 ? message.substring(0, 100) + '...' : message}`);
         resolve();
       });
     });
   }
 
-  /**
-   * Set up periodic polling
-   */
   private setupPeriodicPolling(): void {
     const pollingInterval = this.deviceManager.getPollingInterval();
     console.log(`Setting up periodic polling every ${pollingInterval / 1000} seconds`);
 
-    // Initial poll - request data immediately for all devices
     this.deviceManager.getDevices().forEach(device => {
       this.requestDeviceData(device);
     });
 
-    // Clear any existing interval
     if (this.pollingInterval) {
       clearInterval(this.pollingInterval);
     }
 
-    // Set up interval for periodic polling
     this.pollingInterval = setInterval(() => {
       this.deviceManager.getDevices().forEach(device => {
         this.requestDeviceData(device);
       });
     }, pollingInterval);
 
-    // Clear any existing discovery interval
     if (this.discoveryInterval) {
       clearInterval(this.discoveryInterval);
     }
 
-    // Republish Home Assistant discovery configurations every hour
     this.discoveryInterval = setInterval(() => {
       this.deviceManager.getDevices().forEach(device => {
         this.publishDiscoveryConfigs(device);
       });
-    }, 3600000); // Every hour
+    }, 3600000);
   }
 
   private publishDiscoveryConfigs(device: Device) {
@@ -196,11 +161,6 @@ export class MqttClient {
 
   private lastRequestTime: Map<string, number> = new Map();
 
-  /**
-   * Request device data
-   *
-   * @param device - The device configuration
-   */
   requestDeviceData(device: Device): void {
     const topics = this.deviceManager.getDeviceTopics(device);
     const deviseDefinition = getDeviceDefinition(device.deviceType);
@@ -231,15 +191,11 @@ export class MqttClient {
     });
 
     if (!needsRefreshRuntimeInfo && !this.deviceManager.hasRunningResponseTimeouts(device)) {
-      // Set a timeout for the response
       const timeout = setTimeout(() => {
         console.warn(`No response received from ${device.deviceId} within timeout period`);
-
-        // Mark device as offline
         this.publish(availabilityTopic, 'offline', { qos: 1, retain: true });
       }, this.deviceManager.getResponseTimeout());
 
-      // Store the timeout
       this.deviceManager.setResponseTimeout(device, timeout);
     }
 
@@ -250,35 +206,28 @@ export class MqttClient {
       if (lastRequestTime == null || now > lastRequestTime + message.pollInterval) {
         this.lastRequestTime.set(lastRequestTimeKey, now);
         const payload = message.refreshDataPayload;
-        setTimeout(
-          () => {
-            this.publish(controlTopic, payload, { qos: 1 }).catch(err => {
-              console.error(`Error requesting device data for ${device.deviceId}:`, err);
-            });
-          },
-          // Spread out the requests to avoid flooding the device
-          idx * 100,
-        );
+        setTimeout(() => {
+          this.publish(controlTopic, payload, { qos: 1 }).catch(err => {
+            console.error(`Error requesting device data for ${device.deviceId}:`, err);
+          });
+        }, idx * 100);
       }
     }
+
+    const flatState = this.deviceManager.getFlattenedDeviceState(device);
+    const dataTopic = `${topics.publishTopic}/data`;
+    this.publish(dataTopic, JSON.stringify(flatState), { qos: 1, retain: false }).catch(err => {
+      console.error(`Error publishing device data for ${device.deviceId}:`, err);
+    });
   }
 
-  /**
-   * Handle MQTT error event
-   *
-   * @param error - The error
-   */
   private handleError(error: Error): void {
     console.error('MQTT client error:', error);
   }
 
-  /**
-   * Handle MQTT close event
-   */
   private handleClose(): void {
     console.log('Disconnected from MQTT broker');
 
-    // Clean up intervals
     if (this.pollingInterval) {
       clearInterval(this.pollingInterval);
       this.pollingInterval = null;
@@ -290,13 +239,9 @@ export class MqttClient {
     }
   }
 
-  /**
-   * Close the MQTT connection
-   */
   async close(): Promise<void> {
     console.log('Closing MQTT connection');
 
-    // Publish offline status for all devices
     const publishPromises = this.deviceManager.getDevices().map(device => {
       const topics = this.deviceManager.getDeviceTopics(device);
 
@@ -307,22 +252,19 @@ export class MqttClient {
       return Promise.resolve();
     });
 
-    // Publish global offline status
     publishPromises.push(
       this.publish('hame_energy/availability', 'offline', { qos: 1, retain: true }),
     );
 
-    // Wait for all publish operations to complete (with timeout)
     try {
       await Promise.race([
         Promise.all(publishPromises),
-        new Promise(resolve => setTimeout(resolve, 1000)), // 1 second timeout
+        new Promise(resolve => setTimeout(resolve, 1000)),
       ]);
     } catch (error) {
       console.error('Error publishing offline status:', error);
     }
 
-    // Clean up intervals
     if (this.pollingInterval) {
       clearInterval(this.pollingInterval);
       this.pollingInterval = null;
@@ -333,7 +275,6 @@ export class MqttClient {
       this.discoveryInterval = null;
     }
 
-    // End the client connection
     this.client.end();
   }
 }
