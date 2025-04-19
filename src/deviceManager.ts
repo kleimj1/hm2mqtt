@@ -267,4 +267,30 @@ export class DeviceManager {
   getResponseTimeout(): number {
     return this.config.responseTimeout || 15000; // Default to 15 seconds if not specified
   }
+  /**
+   * Returns a flat object containing the complete current device state,
+   * with all nested values (like values.batterySoc) moved to the root level
+   *
+   * @param device - The device configuration
+   * @returns Flattened object of all current values
+   */
+  getFlattenedDeviceState(device: Device): Record<string, any> {
+    const state = this.getDeviceState(device) ?? {};
+    return this.flattenObject(state);
+  }
+
+  /**
+   * Utility function to flatten nested objects (e.g. { values: { a:1 } } => { a:1 })
+   */
+  private flattenObject(obj: Record<string, any>, prefix = ''): Record<string, any> {
+    return Object.entries(obj).reduce((acc, [key, value]) => {
+      const newKey = prefix ? `${prefix}.${key}` : key;
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        Object.assign(acc, this.flattenObject(value, newKey));
+      } else {
+        acc[newKey] = value;
+      }
+      return acc;
+    }, {} as Record<string, any>);
+  } 
 }
