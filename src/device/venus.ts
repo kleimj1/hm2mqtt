@@ -39,6 +39,9 @@ enum CommandType {
  * @param params - Command parameters
  * @returns Formatted command string
  */
+function isVenusBmsInfoMessage(values: Record<string, string>): boolean {
+  return 'b_ver' in values && 'b_soc' in values && 'b_tp1' in values && 'b_vo1' in values;
+}
 function processCommand(command: CommandType, params: CommandParams = {}): string {
   const entries = Object.entries(params);
   return `cd=${command}${entries.length > 0 ? ',' : ''}${entries.map(([key, value]) => `${key}=${value}`).join(',')}`;
@@ -129,6 +132,84 @@ registerDeviceDefinition(
   },
   ({ message }) => {
     registerRuntimeInfoMessage(message);
+    registerDeviceDefinition(
+  {
+    deviceTypes: ['HMG'],
+  },
+  ({ message }) => {
+    message<VenusDeviceData>({
+      refreshDataPayload: 'cd=14',
+      isMessage: isVenusBmsInfoMessage,
+      publishPath: 'bms',
+      defaultState: {},
+      getAdditionalDeviceInfo: extractAdditionalDeviceInfo,
+      pollInterval: globalPollInterval,
+    }, ({ field, advertise }) => {
+
+      // Zellspannungen
+      for (let i = 1; i <= 16; i++) {
+        const key = `b_vo${i}`;
+        field({ key, path: ['cellVoltages', i - 1] });
+        advertise(
+          ['cellVoltages', i - 1],
+          sensorComponent<number>({
+            id: `cell_voltage_${i}`,
+            name: `Cell Voltage ${i}`,
+            unit_of_measurement: 'mV',
+            device_class: 'voltage',
+          }),
+        );
+      }
+
+      // Temperatur-Sensoren
+      for (let i = 1; i <= 4; i++) {
+        const key = `b_tp${i}`;
+        field({ key, path: ['cellTemperatures', i - 1] });
+        advertise(
+          ['cellTemperatures', i - 1],
+          sensorComponent<number>({
+            id: `cell_temperature_${i}`,
+            name: `Cell Temperature ${i}`,
+            unit_of_measurement: '°C',
+            device_class: 'temperature',
+          }),
+        );
+      }
+
+      // Weitere BMS-Daten
+      const bmsFields = [
+        ['b_ver', 'bms_version'],
+        ['b_soc', 'bms_soc'],
+        ['b_soh', 'bms_soh'],
+        ['b_cap', 'bms_capacity'],
+        ['b_vol', 'bms_voltage'],
+        ['b_cur', 'bms_current'],
+        ['b_tem', 'bms_temperature'],
+        ['b_chv', 'bms_charge_voltage'],
+        ['b_chf', 'bms_full_charge_cap'],
+        ['b_cpc', 'bms_cell_cycle'],
+        ['b_err', 'bms_error'],
+        ['b_war', 'bms_warning'],
+        ['b_ret', 'bms_total_runtime'],
+        ['b_ent', 'bms_energy_throughput'],
+        ['b_mot', 'bms_mosfet_temp'],
+      ] as const;
+
+      for (const [key, id] of bmsFields) {
+        field({ key, path: ['bms', id] });
+        advertise(
+          ['bms', id],
+          sensorComponent<number>({
+            id,
+            name: id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+            unit_of_measurement: key === 'b_cur' ? 'mA' : undefined,
+          }),
+        );
+      }
+    });
+  },
+);
+
   },
 );
 
