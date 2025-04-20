@@ -1,5 +1,33 @@
 name: Build & Push hm2mqtt Image
-
+on:
+  workflow_call:
+    inputs:
+      registry:
+        required: true
+        type: string
+      platform:
+        required: true
+        type: string
+      base:
+        required: false
+        type: string
+        default: ""
+      context:
+        required: true
+        type: string
+      dockerfile:
+        required: true
+        type: string
+      build-args:
+        required: false
+        type: string
+        default: ""
+      image-suffix:
+        required: true
+        type: string
+      digest-prefix:
+        required: true
+        type: string
 on:
   push:
     branches:
