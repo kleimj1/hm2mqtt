@@ -132,6 +132,8 @@ registerDeviceDefinition(
   },
   ({ message }) => {
     registerRuntimeInfoMessage(message);
+  },
+);
     registerDeviceDefinition(
   {
     deviceTypes: ['HMG'],
@@ -210,8 +212,6 @@ registerDeviceDefinition(
   },
 );
 
-  },
-);
 
 function registerRuntimeInfoMessage(message: BuildMessageFn) {
   let options = {
