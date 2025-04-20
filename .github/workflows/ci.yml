@@ -31,11 +31,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run linting
-        run: npm run lint
-        continue-on-error: true
-
-      - name: Fix formatting with Prettier
+      - name: Auto-fix formatting with Prettier
         run: npx prettier --write "src/**/*.ts"
 
       - name: Run tests
@@ -46,21 +42,20 @@ jobs:
       - name: Build TypeScript
         run: npm run build
 
-  build-and-push:
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-node-${{ matrix.node-version }}
+          path: ./test-results/junit.xml
+          if-no-files-found: warn
+
+  build:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.extract-version.outputs.version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Install yq
-        run: sudo apt-get update && sudo apt-get install -y yq
-
-      - name: Extract version
-        id: extract-version
-        run: |
-          VERSION=$(yq '.version' ha_addon/config.yaml)
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -74,6 +69,14 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version from ha_addon/config.yaml
+        id: extract-version
+        run: |
+          VERSION=$(grep '^version:' ha_addon/config.yaml | cut -d '"' -f2)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "version=$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
