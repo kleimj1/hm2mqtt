@@ -23,8 +23,8 @@ RUN npm ci --only=production
 # STAGE 2: Final image    #
 ###########################
 
-ARG BUILD_FROM=ghcr.io/hassio-addons/base:14.2.2
-FROM ${BUILD_FROM}
+ARG BUILD_FROM
+FROM ${BUILD_FROM:-ghcr.io/hassio-addons/base:14.2.2}
 
 # Metadata
 LABEL maintainer="kleimj1 <github.com/kleimj1>"
