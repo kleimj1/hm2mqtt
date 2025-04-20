@@ -1,43 +1,49 @@
-# Build stage
+#########################
+# STAGE 1: Build assets #
+#########################
+
 FROM node:18.19.1-alpine AS builder
 
 WORKDIR /build
 
-# Copy package files
-COPY package*.json ./
-COPY tsconfig.json ./
-
-# Install all dependencies (including devDependencies)
+# Install dependencies
+COPY package*.json tsconfig.json ./
 RUN npm ci
 
-# Copy source code
+# Copy source files
 COPY src/ ./src/
 
-# Build the application
+# Transpile TypeScript to JavaScript
 RUN npm run build
 
-# Install production dependencies
+# Prune dev dependencies
 RUN npm ci --only=production
 
-# Final stage
-ARG BUILD_FROM
-FROM ${BUILD_FROM:-ghcr.io/hassio-addons/base:14.2.2}
+###########################
+# STAGE 2: Final image    #
+###########################
 
-# Install Node.js
+ARG BUILD_FROM=ghcr.io/hassio-addons/base:14.2.2
+FROM ${BUILD_FROM}
+
+# Metadata
+LABEL maintainer="kleimj1 <github.com/kleimj1>"
+LABEL org.opencontainers.image.source="https://github.com/kleimj1/hm2mqtt"
+
+# Install Node.js runtime
 RUN apk add --no-cache nodejs
 
-# Set work directory
+# Set working directory
 WORKDIR /app
 
-# Copy package file (for reference only)
+# Copy production dependencies and dist files
+COPY --from=builder /build/node_modules ./node_modules
+COPY --from=builder /build/dist ./dist
 COPY package.json ./
 
-# Copy production dependencies and built application from builder
-COPY --from=builder /build/node_modules ./node_modules
-COPY --from=builder /build/dist/ ./dist/
+# Add Home Assistant startup script
+COPY ha_addon/run.sh /run.sh
+RUN chmod +x /run.sh
 
-# Copy add-on files
-COPY ha_addon/run.sh /
-RUN chmod a+x /run.sh
-
+# Define default command
 CMD [ "/run.sh" ]
