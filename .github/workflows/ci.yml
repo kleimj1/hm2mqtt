@@ -2,10 +2,10 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [ main ]
-    tags: [ "*.*.*" ]
+    branches: [main]
+    tags: ["*.*.*"]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 permissions:
   packages: write
@@ -53,95 +53,12 @@ jobs:
           path: ./test-results/junit.xml
           if-no-files-found: warn
 
-  build:
+  extract-version:
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.extract-version.outputs.version }}
-    strategy:
-      fail-fast: false
-      matrix:
-        config:
-          - platform: linux/amd64
-            base: node:20-alpine
-          - platform: linux/arm/v7
-            base: node:20-alpine
-          - platform: linux/arm64
-            base: node:20-alpine
+      version: ${{ steps.read-version.outputs.version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install yq
-        run: |
-          sudo apt-get update && sudo apt-get install -y yq
-
-      - name: Extract version from ha_addon/config.yaml
-        id: extract-version
-        run: |
-          VERSION=$(yq '.version' ha_addon/config.yaml)
-          echo "Detected version: $VERSION"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Call build-image workflow
-        uses: ./.github/workflows/build-image.yml
-        with:
-          registry: ghcr.io
-          platform: ${{ matrix.config.platform }}
-          base: ${{ matrix.config.base }}
-          context: .
-          dockerfile: ./Dockerfile
-          image-suffix: ":${{ steps.extract-version.outputs.version }}"
-          digest-prefix: "digests-base-"
-
-  merge:
-    needs: [build]
-    uses: ./.github/workflows/merge-manifests.yml
-    with:
-      registry: ghcr.io
-      image-suffix: ":${{ needs.build.outputs.version }}"
-      digest-prefix: "digests-base-"
-
-  build-addon:
-    needs: [build]
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        platform:
-          - linux/amd64
-          - linux/arm64
-          - linux/arm/v7
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install yq
-        run: |
-          sudo apt-get update && sudo apt-get install -y yq
-
-      - name: Extract version from ha_addon/config.yaml
-        id: extract-version
-        run: |
-          VERSION=$(yq '.version' ha_addon/config.yaml)
-          echo "Detected version: $VERSION"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Call build-image workflow
-        uses: ./.github/workflows/build-image.yml
-        with:
-          registry: ghcr.io
-          platform: ${{ matrix.platform }}
-          context: .
-          dockerfile: ha_addon/Dockerfile
-          build-args: |
-            BUILD_FROM=ghcr.io/hassio-addons/base:14.2.2
-          image-suffix: ":${{ steps.extract-version.outputs.version }}-addon"
-          digest-prefix: "digests-addon-"
-
-  merge-addon:
-    needs: [build-addon]
-    uses: ./.github/workflows/merge-manifests.yml
-    with:
-      registry: ghcr.io
-      image-suffix: ":${{ needs.build.outputs.version }}-addon"
-      digest-prefix: "digests-addon-"
+      - name: Read version from ha_addon_
