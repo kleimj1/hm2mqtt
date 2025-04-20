@@ -181,14 +181,12 @@ export class MqttClient {
     console.log(`Requesting device data for ${device.deviceId} on topic: ${controlTopic}`);
 
     const needsRefreshRuntimeInfo = deviseDefinition.messages.some((message, idx) => {
-      if (idx > 0) {
-        return false;
-      }
-      let lastRequestTimeKey = `${device.deviceId}:${message}`;
+      const lastRequestTimeKey = `${device.deviceId}:${idx}`;
       const lastRequestTime = this.lastRequestTime.get(lastRequestTimeKey);
-      let now = Date.now();
-      return lastRequestTime == null || lastRequestTime <= now - message.pollInterval;
+      const now = Date.now();
+      return lastRequestTime == null || now >= lastRequestTime + message.pollInterval;
     });
+
 
     if (!needsRefreshRuntimeInfo && !this.deviceManager.hasRunningResponseTimeouts(device)) {
       const timeout = setTimeout(() => {
