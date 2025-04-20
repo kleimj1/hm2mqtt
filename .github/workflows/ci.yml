@@ -31,10 +31,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Check formatting with Prettier
-        run: npm run lint || true
+      - name: Run linting
+        run: npm run lint
+        continue-on-error: true
 
-      - name: Auto-fix formatting issues
+      - name: Fix formatting with Prettier
         run: npx prettier --write "src/**/*.ts"
 
       - name: Run tests
@@ -74,10 +75,10 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y yq
 
-      - name: Extract version from config.yaml
+      - name: Extract version from ha_addon/config.yaml
         id: extract-version
         run: |
-          VERSION=$(yq '.version' config.yaml)
+          VERSION=$(yq '.version' ha_addon/config.yaml)
           echo "Detected version: $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
@@ -89,7 +90,7 @@ jobs:
           base: ${{ matrix.config.base }}
           context: .
           dockerfile: ./Dockerfile
-          image-suffix: ${{ steps.extract-version.outputs.version }}
+          image-suffix: ":${{ steps.extract-version.outputs.version }}"
           digest-prefix: "digests-base-"
 
   merge:
@@ -97,7 +98,7 @@ jobs:
     uses: ./.github/workflows/merge-manifests.yml
     with:
       registry: ghcr.io
-      image-suffix: ${{ needs.build.outputs.version }}
+      image-suffix: ":${{ needs.build.outputs.version }}"
       digest-prefix: "digests-base-"
 
   build-addon:
@@ -118,10 +119,10 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y yq
 
-      - name: Extract version from config.yaml
+      - name: Extract version from ha_addon/config.yaml
         id: extract-version
         run: |
-          VERSION=$(yq '.version' config.yaml)
+          VERSION=$(yq '.version' ha_addon/config.yaml)
           echo "Detected version: $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
@@ -134,7 +135,7 @@ jobs:
           dockerfile: ha_addon/Dockerfile
           build-args: |
             BUILD_FROM=ghcr.io/hassio-addons/base:14.2.2
-          image-suffix: ${{ steps.extract-version.outputs.version }}-addon
+          image-suffix: ":${{ steps.extract-version.outputs.version }}-addon"
           digest-prefix: "digests-addon-"
 
   merge-addon:
@@ -142,5 +143,5 @@ jobs:
     uses: ./.github/workflows/merge-manifests.yml
     with:
       registry: ghcr.io
-      image-suffix: ${{ needs.build.outputs.version }}-addon
+      image-suffix: ":${{ needs.build.outputs.version }}-addon"
       digest-prefix: "digests-addon-"
