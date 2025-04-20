@@ -355,4 +355,24 @@ export interface VenusDeviceData extends BaseDeviceData {
   bmsVersion?: number;
   communicationModuleVersion?: string;
   wifiName?: string;
+  // BMS-Daten
+  cellVoltages?: number[];
+  cellTemperatures?: number[];
+  bms?: {
+    bms_version?: number;
+    bms_soc?: number;
+    bms_soh?: number;
+    bms_capacity?: number;
+    bms_voltage?: number;
+    bms_current?: number;
+    bms_temperature?: number;
+    bms_charge_voltage?: number;
+    bms_full_charge_cap?: number;
+    bms_cell_cycle?: number;
+    bms_error?: number;
+    bms_warning?: number;
+    bms_total_runtime?: number;
+    bms_energy_throughput?: number;
+    bms_mosfet_temp?: number;
+  };  
 }
