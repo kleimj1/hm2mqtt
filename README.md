@@ -4,244 +4,113 @@ Reads Hame energy storage MQTT data, parses it and exposes it as JSON.
 
 ## Overview
 
-hm2mqtt is a bridge application that connects Hame energy storage devices (like the B2500 series) to Home Assistant (or other home automation systems) through MQTT. It provides real-time monitoring and control of your energy storage system directly from your Home Assistant dashboard.
+hm2mqtt is a bridge application that connects Hame energy storage devices (like the B2500 series and Marstek Venus) to Home Assistant (or other home automation systems) via MQTT. It enables real-time monitoring and control of your system directly from the Home Assistant dashboard.
 
 ## Supported Devices
 
-- B2500 series (e.g. Marstek B2500-D, Greensolar, BluePalm, Plenti SOLAR B2500H, Be Cool BC2500B)
-  - First generation without timer support
-  - Seconds and third generation with timer support
-- Marstek Venus
+- **B2500 Series**:
+  - 1st Gen (no timer support)
+  - 2nd & 3rd Gen (with timer support)
+- **Marstek Venus (HMG-25)**:
+  - via [hame-relay](https://github.com/kleimj1/hame-relay) Mode 2 forwarding
 
 ## Prerequisites
 
-- Before you start, you need a local MQTT broker. You can install one as a Home Assistant Addon: https://www.home-assistant.io/integrations/mqtt/#setting-up-a-broker
-- After setting up an MQTT broker, configure your energy storage device to send MQTT data to your MQTT broker:
-  1. For the **B2500**, you have two options:
-     1. Contact the support and ask them to enable MQTT for your device, then configure the MQTT broker in the device settings through the PowerZero or Marstek app.
-     2. With your an Android Smartphone or with a Bluetooth enabled PC use [this tool](https://tomquist.github.io/hame-relay/b2500.html) to configure the MQTT broker directly via Bluetooth.
-   
-     **Warning:** Enabling MQTT on the device will disable the cloud connection. You will not be able to use the PowerZero or Marstek app to monitor or control your device anymore. You can re-enable the cloud connection by installing [Hame Relay](https://github.com/tomquist/hame-relay#mode-1-storage-configured-with-local-broker-inverse_forwarding-false) in Mode 1.
-  2. The **Marstek Venus** doesn't officially support MQTT. However, you can install the [Hame Relay](https://github.com/tomquist/hame-relay) in [Mode 2](https://github.com/tomquist/hame-relay#mode-2-storage-configured-with-hame-broker-inverse_forwarding-true) to forward the Cloud MQTT data to your local MQTT broker.
+- A local MQTT broker (e.g. Mosquitto, HA Add-on)
+- Device MQTT support (either enabled via app or Bluetooth)
+- Optional: [hame-relay](https://github.com/kleimj1/hame-relay) for cloud-to-local MQTT bridging
 
 ## Installation
 
-### As a Home Assistant Add-on (Recommended)
+### Home Assistant Add-on
 
-The easiest way to use hm2mqtt is as a Home Assistant add-on:
+1. Add this repository:
+   [![Add Repository](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fkleimj1%2Fhm2mqtt)
+2. Install the **hm2mqtt** add-on
+3. Configure and start it
 
-1. Add this repository URL to your Home Assistant add-on store:
-   
-   [![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Ftomquist%2Fhm2mqtt)
-2. Install the "hm2mqtt" add-on
-3. Configure your devices in the add-on configuration
-4. Start the add-on
-
-### Using Docker
-
-#### Pre-built Docker Image
-
-You can run hm2mqtt using the pre-built Docker image from the GitHub package registry:
+### Docker
 
 ```bash
 docker run -d --name hm2mqtt \
   -e MQTT_BROKER_URL=mqtt://your-broker:1883 \
-  -e MQTT_USERNAME=your-username \
-  -e MQTT_PASSWORD=your-password \
-  -e POLL_CELL_DATA=false \
-  -e POLL_EXTRA_BATTERY_DATA=false \
-  -e POLL_CALIBRATION_DATA=false \
-  -e DEVICE_0=HMA-1:your-device-mac \
-  ghcr.io/tomquist/hm2mqtt:latest
+  -e DEVICE_0=HMG-25:your-device-mac \
+  ghcr.io/kleimj1/hm2mqtt:latest
 ```
-
-Configure multiple devices by adding more environment variables:
-
-```bash
-docker run -d --name hm2mqtt \
-  -e MQTT_BROKER_URL=mqtt://your-broker:1883 \
-  -e DEVICE_0=HMA-1:device-mac-1 \
-  -e DEVICE_1=HMB-1:device-mac-2 \
-  ghcr.io/tomquist/hm2mqtt:latest
-```
-
-The Docker image is automatically built and published to the GitHub package registry with each release.
-
-### Manual Installation
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/tomquist/hm2mqtt.git
-   cd hm2mqtt
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Build the application:
-   ```bash
-   npm run build
-   ```
-
-4. Create a `.env` file with your configuration:
-   ```
-   MQTT_BROKER_URL=mqtt://your-broker:1883
-   MQTT_USERNAME=your-username
-   MQTT_PASSWORD=your-password
-   MQTT_POLLING_INTERVAL=60000
-   MQTT_RESPONSE_TIMEOUT=30000
-   POLL_CELL_DATA=false
-   POLL_EXTRA_BATTERY_DATA=false
-   POLL_CALIBRATION_DATA=false
-   DEVICE_0=HMA-1:your-device-mac
-   ```
-
-5. Run the application:
-   ```bash
-   node dist/index.js
-   ```
 
 ## Configuration
 
 ### Environment Variables
 
-| Variable | Description | Default                 |
-|----------|-------------|-------------------------|
-| `MQTT_BROKER_URL` | MQTT broker URL | `mqtt://localhost:1883` |
-| `MQTT_CLIENT_ID` | MQTT client ID | `hm2mqtt-{random}`      |
-| `MQTT_USERNAME` | MQTT username | -                       |
-| `MQTT_PASSWORD` | MQTT password | -                       |
-| `MQTT_POLLING_INTERVAL` | Interval between device polls (ms) | `60000`                 |
-| `MQTT_RESPONSE_TIMEOUT` | Timeout for device responses (ms) | `15000`                 |
-| `POLL_CELL_DATA` | Enable cell voltage (only available on B2500 devices) | false |
-| `POLL_EXTRA_BATTERY_DATA` | Enable extra battery data reporting (only available on B2500 devices) | false |
-| `POLL_CALIBRATION_DATA` | Enable calibration data reporting (only available on B2500 devices) | false |
-| `DEVICE_n` | Device configuration in format `{type}:{mac}` | -                       |
+| Variable                   | Description                                             | Default                 |
+|---------------------------|---------------------------------------------------------|-------------------------|
+| `MQTT_BROKER_URL`         | URL to your MQTT broker                                 | `mqtt://localhost:1883` |
+| `MQTT_USERNAME`           | MQTT username                                           |                         |
+| `MQTT_PASSWORD`           | MQTT password                                           |                         |
+| `MQTT_POLLING_INTERVAL`   | Device polling interval (ms)                            | `60000`                 |
+| `MQTT_RESPONSE_TIMEOUT`   | Timeout waiting for response from device (ms)           | `15000`                 |
+| `DEVICE_n`                | Each device in the format `type:mac`                    |                         |
+| `POLL_CELL_DATA`          | Poll cell voltages (B2500 only)                         | `false`                 |
+| `POLL_EXTRA_BATTERY_DATA` | Poll additional battery data (B2500 only)               | `false`                 |
+| `POLL_CALIBRATION_DATA`   | Poll calibration data (B2500 only)                      | `false`                 |
 
-### Add-on Configuration
+### Home Assistant Add-on config.yaml
 
 ```yaml
-pollingInterval: 60000  # Interval between device polls in milliseconds
-responseTimeout: 30000  # Timeout for device responses in milliseconds
+version: "1.1.3"
 devices:
-  - deviceType: "HMA-1"
-    deviceId: "your-device-mac"
-```
-
-The device id is the MAC address of the device in lowercase, without colons.
-
-The device type can be one of the following:
-- HMB-X: (e.g. HMB-1, HMB-2, ...) B2500 storage v1
-- HMA-X: (e.g. HMA-1, HMA-2, ...) B2500 storage v2
-- HMK-X: (e.g. HMK-1, HMK-2, ...) Greensolar storage v3
-- HMG-X: (e.g. HMG-50) Marstek Venus
-
-## Development
-
-### Building
-
-```bash
-npm run build
-```
-
-### Testing
-
-```bash
-npm test
-```
-
-### Docker
-
-#### Building Your Own Docker Image
-
-If you prefer to build the Docker image yourself:
-
-```bash
-docker build -t hm2mqtt .
-```
-
-Run the container:
-
-```bash
-docker run -e MQTT_BROKER_URL=mqtt://your-broker:1883 -e DEVICE_0=HMA-1:your-device-mac hm2mqtt
+  - deviceType: "HMG-25"
+    deviceId: "abcdef123456"
+pollingInterval: 60000
+responseTimeout: 30000
+enableCellData: false
+enableCalibrationData: false
+enableExtraBatteryData: false
 ```
 
 ## MQTT Topics
 
-### Device Data Topic
-
-Your device data is published to the following MQTT topic:
+### State Topic
 
 ```
-hame_energy/{device_type}/device/{device_mac}/data
+hame_energy/{device_type}/device/{device_id}/data
 ```
-
-This topic contains the current state of your device in JSON format, including battery status, power flow data, and device settings.
 
 ### Control Topics
 
-You can control your device by publishing messages to specific MQTT topics. The base topic pattern for commands is:
-
 ```
-hame_energy/{device_type}/control/{device_mac}/{command}
+hame_energy/{device_type}/control/{device_id}/{command}
 ```
 
-### Common Commands (All Devices)
-- `refresh`: Refreshes the device data
-- `factory-reset`: Resets the device to factory settings
+### Example Commands
 
-### B2500 Commands (All Versions)
-- `discharge-depth`: Controls battery discharge depth (0-100%)
-- `restart`: Restarts the device
-- `use-flash-commands`: Toggles flash command mode
+```bash
+# Refresh state
+mosquitto_pub -t "hame_energy/HMG-25/control/abcdef123456/refresh" -m "true"
 
-### B2500 V1 Specific Commands
-- `charging-mode`: Sets charging mode (`pv2PassThrough` or `chargeThenDischarge`)
-- `battery-threshold`: Sets battery output threshold (0-800W)
-- `output1`: Enables/disables output port 1 (`on` or `off`)
-- `output2`: Enables/disables output port 2 (`on` or `off`)
-
-### B2500 V2/V3 Specific Commands
-- `charging-mode`: Sets charging mode (`chargeDischargeSimultaneously` or `chargeThenDischarge`)
-- `adaptive-mode`: Toggles adaptive mode (`on` or `off`)
-- `time-period/[1-5]/enabled`: Enables/disables specific time period (`on` or `off`)
-- `time-period/[1-5]/start-time`: Sets start time for period (HH:MM format)
-- `time-period/[1-5]/end-time`: Sets end time for period (HH:MM format)
-- `time-period/[1-5]/output-value`: Sets output power for period (0-800W)
-- `connected-phase`: Sets connected phase for CT meter (`1`, `2`, or `3`)
-- `time-zone`: Sets time zone (UTC offset in hours)
-- `sync-time`: Synchronizes device time with server
-
-### Venus Device Commands
-- `working-mode`: Sets working mode (`automatic`, `manual`, or `trading`)
-- `auto-switch-working-mode`: Toggles automatic mode switching (`on` or `off`)
-- `time-period/[0-9]/enabled`: Enables/disables time period (`on` or `off`)
-- `time-period/[0-9]/start-time`: Sets start time for period (HH:MM format)
-- `time-period/[0-9]/end-time`: Sets end time for period (HH:MM format)
-- `time-period/[0-9]/power`: Sets power value for period (-2500 to 2500W)
-- `time-period/[0-9]/weekday`: Sets days of week for period (0-6, where 0 is Sunday)
-- `get-ct-power`: Gets current transformer power readings
-- `transaction-mode`: Sets transaction mode parameters
-
-### Examples
-
+# Set working mode (Venus)
+mosquitto_pub -t "hame_energy/HMG-25/control/abcdef123456/working-mode" -m "automatic"
 ```
-# Refresh data from a B2500 device
-mosquitto_pub -t "hame_energy/HMA-1/control/abcdef123456/refresh" -m ""
 
-# Set charging mode for B2500
-mosquitto_pub -t "hame_energy/HMA-1/control/abcdef123456/charging-mode" -m "chargeThenDischarge"
+## Development
 
-# Enable timer period 1 on Venus device
-mosquitto_pub -t "hame_energy/HMG-50/control/abcdef123456/time-period/1/enabled" -m "on"
+```bash
+npm install
+npm run build
+npm test
+```
+
+## Docker Development
+
+```bash
+docker build -t hm2mqtt .
+docker run -e MQTT_BROKER_URL=mqtt://localhost:1883 -e DEVICE_0=HMG-25:abcdef123456 hm2mqtt
 ```
 
 ## License
 
-[MIT License](LICENSE)
+MIT
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+PRs welcome at https://github.com/kleimj1/hm2mqtt
