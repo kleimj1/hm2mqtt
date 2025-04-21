@@ -123,12 +123,9 @@ const requiredRuntimeInfoKeys = [
   'wor_m',
 ];
 function isVenusRuntimeInfoMessage(values: Record<string, string>): boolean {
-  console.log('[cd=1] Checking runtime message:', values);
-  const missing = requiredRuntimeInfoKeys.filter(key => !(key in values));
-  if (missing.length > 0) {
-    console.warn('[cd=1] Missing runtime keys:', missing);
-  }
-  return missing.length === 0;
+  const isCd1 = values['cd'] === '1'; // Nur wirklich cd=1 Nachrichten akzeptieren
+  const hasMinimumKeys = ['cel_p', 'cel_c', 'tot_i', 'tot_o'].every(key => key in values); // Kernkeys
+  return isCd1 && hasMinimumKeys;
 }
 
 
