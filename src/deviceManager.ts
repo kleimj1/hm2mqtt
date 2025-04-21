@@ -46,6 +46,9 @@ export class DeviceManager {
       }
       const deviceKey = this.getDeviceKey(device);
       console.log(`Initializing topics for device: ${deviceKey}`);
+      if (process.env.DEBUG === 'true') {
+        console.debug = console.log;
+      }
 
       this.deviceTopics[deviceKey] = {
         deviceTopic: `hame_energy/${device.deviceType}/device/${device.deviceId}/ctrl`,
@@ -59,6 +62,9 @@ export class DeviceManager {
       this.deviceResponseTimeouts[deviceKey] = null;
 
       console.log(`Topics for ${deviceKey}:`, this.deviceTopics[deviceKey]);
+      if (process.env.DEBUG === 'true') {
+        console.debug = console.log;
+      }
     });
   }
 
