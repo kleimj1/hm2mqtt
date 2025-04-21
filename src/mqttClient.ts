@@ -1,20 +1,8 @@
-
 import * as mqtt from 'mqtt';
 import { Device, MqttConfig } from './types';
 import { DeviceManager } from './deviceManager';
 import { publishDiscoveryConfigs } from './generateDiscoveryConfigs';
 import { AdditionalDeviceInfo, BaseDeviceData, getDeviceDefinition } from './deviceDefinition';
-
-function parseMessagePayload(payload: string): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (const pair of payload.split(',')) {
-    const [key, value] = pair.split('=');
-    if (key !== undefined && value !== undefined) {
-      result[key.trim()] = value.trim();
-    }
-  }
-  return result;
-}
 
 export class MqttClient {
   private client: mqtt.MqttClient;
@@ -46,36 +34,15 @@ export class MqttClient {
     };
 
     console.log(`Connecting to MQTT broker at ${this.config.brokerUrl} with client ID ${this.config.clientId}`);
-    if (process.env.DEBUG === 'true') {
-      console.debug = console.log;
-    }
     console.log(`MQTT username: ${this.config.username ? this.config.username : 'not provided'}`);
-    if (process.env.DEBUG === 'true') {
-      console.debug = console.log;
-    }
     console.log(`MQTT password: ${this.config.password ? '******' : 'not provided'}`);
-    if (process.env.DEBUG === 'true') {
-      console.debug = console.log;
-    }
 
     const client = mqtt.connect(this.config.brokerUrl, options);
 
     client.on('connect', this.handleConnect.bind(this));
     client.on('reconnect', () => console.log('Attempting to reconnect to MQTT broker...'));
-    if (process.env.DEBUG === 'true') {
-      console.debug = console.log;
-    }  
     client.on('offline', () => console.log('MQTT client is offline'));
-    if (process.env.DEBUG === 'true') {
-      console.debug = console.log;
-    }
-    client.on('message', (topic, message) => {
-      const payload = message.toString();
-      const parsed = parseMessagePayload(payload);
-      console.debug(`[MQTT] Raw payload on topic "${topic}":`, payload);
-      console.debug(`[MQTT] Parsed values:`, parsed);
-      this.messageHandler(topic, message);
-    });
+    client.on('message', this.messageHandler);
     client.on('error', this.handleError.bind(this));
     client.on('close', this.handleClose.bind(this));
 
@@ -91,9 +58,9 @@ export class MqttClient {
       const topics = this.deviceManager.getDeviceTopics(device);
 
       if (!topics) {
-        console.error(`No topics found for device "${device.deviceId}"`);
+        console.error(`No topics found for device ${device.deviceId}`);
         return;
-      };
+      }
 
       this.subscribe(topics.deviceTopic);
       this.subscribeToControlTopics(device);
@@ -101,9 +68,9 @@ export class MqttClient {
       this.publishDiscoveryConfigs(device);
 
       const flatState = this.deviceManager.getFlattenedDeviceState(device);
-      const dataTopic = ${topics.publishTopic}/data;
+      const dataTopic = `${topics.publishTopic}/data`;
       this.publish(dataTopic, JSON.stringify(flatState), { qos: 1 }).catch(err => {
-        console.error(Error publishing initial device data for ${device.deviceId}:, err);
+        console.error(`Error publishing initial device data for ${device.deviceId}:`, err);
       });
     });
 
@@ -128,10 +95,10 @@ export class MqttClient {
   subscribe(topic: string | string[]): void {
     this.client.subscribe(topic, err => {
       if (err) {
-        console.error(Subscription error for ${topic}:, err);
+        console.error(`Subscription error for ${topic}:`, err);
         return;
       }
-      console.log(Subscribed to topic: ${topic});
+      console.log(`Subscribed to topic: ${topic}`);
     });
   }
 
@@ -144,11 +111,11 @@ export class MqttClient {
     return new Promise((resolve, reject) => {
       this.client.publish(topic, message, options, err => {
         if (err) {
-          console.error(Error publishing to ${topic}:, err);
+          console.error(`Error publishing to ${topic}:`, err);
           reject(err);
           return;
         }
-        console.log(Published to ${topic}: ${message.length > 100 ? message.substring(0, 100) + '...' : message});
+        console.log(`Published to ${topic}: ${message.length > 100 ? message.substring(0, 100) + '...' : message}`);
         resolve();
       });
     });
@@ -156,7 +123,7 @@ export class MqttClient {
 
   private setupPeriodicPolling(): void {
     const pollingInterval = this.deviceManager.getPollingInterval();
-    console.log(Setting up periodic polling every ${pollingInterval / 1000} seconds);
+    console.log(`Setting up periodic polling every ${pollingInterval / 1000} seconds`);
 
     this.deviceManager.getDevices().forEach(device => {
       this.requestDeviceData(device);
@@ -199,31 +166,30 @@ export class MqttClient {
     const deviseDefinition = getDeviceDefinition(device.deviceType);
 
     if (!deviseDefinition) {
-      console.error(No definition found for device type ${device.deviceType});
+      console.error(`No definition found for device type ${device.deviceType}`);
       return;
     }
 
     if (!topics) {
-      console.error(No topics found for device ${device.deviceId});
+      console.error(`No topics found for device ${device.deviceId}`);
       return;
     }
 
     const controlTopic = topics.deviceControlTopic;
     const availabilityTopic = topics.availabilityTopic;
 
-    console.log(Requesting device data for ${device.deviceId} on topic: ${controlTopic});
+    console.log(`Requesting device data for ${device.deviceId} on topic: ${controlTopic}`);
 
     const needsRefreshRuntimeInfo = deviseDefinition.messages.some((message, idx) => {
-      const lastRequestTimeKey = ${device.deviceId}:${idx};
+      const lastRequestTimeKey = `${device.deviceId}:${idx}`;
       const lastRequestTime = this.lastRequestTime.get(lastRequestTimeKey);
       const now = Date.now();
       return lastRequestTime == null || now >= lastRequestTime + message.pollInterval;
     });
 
-
     if (!needsRefreshRuntimeInfo && !this.deviceManager.hasRunningResponseTimeouts(device)) {
       const timeout = setTimeout(() => {
-        console.warn(No response received from ${device.deviceId} within timeout period);
+        console.warn(`No response received from ${device.deviceId} within timeout period`);
         this.publish(availabilityTopic, 'offline', { qos: 1, retain: true });
       }, this.deviceManager.getResponseTimeout());
 
@@ -231,7 +197,7 @@ export class MqttClient {
     }
 
     for (const [idx, message] of deviseDefinition.messages.entries()) {
-      let lastRequestTimeKey = ${device.deviceId}:${idx};
+      let lastRequestTimeKey = `${device.deviceId}:${idx}`;
       const lastRequestTime = this.lastRequestTime.get(lastRequestTimeKey);
       let now = Date.now();
       if (lastRequestTime == null || now > lastRequestTime + message.pollInterval) {
@@ -239,16 +205,16 @@ export class MqttClient {
         const payload = message.refreshDataPayload;
         setTimeout(() => {
           this.publish(controlTopic, payload, { qos: 1 }).catch(err => {
-            console.error(Error requesting device data for ${device.deviceId}:, err);
+            console.error(`Error requesting device data for ${device.deviceId}:`, err);
           });
         }, idx * 100);
       }
     }
 
     const flatState = this.deviceManager.getFlattenedDeviceState(device);
-    const dataTopic = ${topics.publishTopic}/data;
+    const dataTopic = `${topics.publishTopic}/data`;
     this.publish(dataTopic, JSON.stringify(flatState), { qos: 1, retain: false }).catch(err => {
-      console.error(Error publishing device data for ${device.deviceId}:, err);
+      console.error(`Error publishing device data for ${device.deviceId}:`, err);
     });
   }
 
@@ -308,5 +274,4 @@ export class MqttClient {
 
     this.client.end();
   }
-
 }
