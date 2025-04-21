@@ -123,9 +123,21 @@ const requiredRuntimeInfoKeys = [
   'wor_m',
 ];
 function isVenusRuntimeInfoMessage(values: Record<string, string>): boolean {
-  const isCd1 = values['cd'] === '1'; // Nur wirklich cd=1 Nachrichten akzeptieren
-  const hasMinimumKeys = ['cel_p', 'cel_c', 'tot_i', 'tot_o'].every(key => key in values); // Kernkeys
-  return isCd1 && hasMinimumKeys;
+  const isCd1 = values['cd'] === '1';
+  const hasMinimumKeys = ['cel_p', 'cel_c', 'tot_i', 'tot_o'].every(key => key in values);
+
+  if (!isCd1) {
+    console.warn('[cd=1] Ignored message - "cd" is not 1:', values['cd']);
+    return false;
+  }
+
+  if (!hasMinimumKeys) {
+    console.warn('[cd=1] Ignored message - missing critical keys (cel_p, cel_c, tot_i, tot_o)');
+    console.debug('[cd=1] Partial payload received:', values);
+    return false;
+  }
+
+  return true;
 }
 
 
