@@ -25,6 +25,7 @@ options:
   devices:
     - deviceType: "HMG"
       deviceId: "device-mac-address"
+  debug: true
 
 schema:
   mqtt_uri: str?
