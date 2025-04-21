@@ -122,10 +122,15 @@ const requiredRuntimeInfoKeys = [
   'grd_y',
   'wor_m',
 ];
-function isVenusRuntimeInfoMessage(values: Record<string, string>): boolean {
-  return requiredRuntimeInfoKeys.every(key => key in values);
-}
 
+function isVenusRuntimeInfoMessage(values: Record<string, string>): boolean {
+  console.log('Received runtime message:', values);
+  const missing = requiredRuntimeInfoKeys.filter(key => !(key in values));
+  if (missing.length > 0) {
+    console.warn('Missing runtime keys:', missing);
+  }
+  return missing.length === 0;
+}
 registerDeviceDefinition(
   {
     deviceTypes: ['HMG'],
