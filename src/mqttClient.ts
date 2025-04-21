@@ -46,14 +46,29 @@ export class MqttClient {
     };
 
     console.log(`Connecting to MQTT broker at ${this.config.brokerUrl} with client ID ${this.config.clientId}`);
+    if (process.env.DEBUG === 'true') {
+      console.debug = console.log;
+    }
     console.log(`MQTT username: ${this.config.username ? this.config.username : 'not provided'}`);
+    if (process.env.DEBUG === 'true') {
+      console.debug = console.log;
+    }
     console.log(`MQTT password: ${this.config.password ? '******' : 'not provided'}`);
+    if (process.env.DEBUG === 'true') {
+      console.debug = console.log;
+    }
 
     const client = mqtt.connect(this.config.brokerUrl, options);
 
     client.on('connect', this.handleConnect.bind(this));
     client.on('reconnect', () => console.log('Attempting to reconnect to MQTT broker...'));
+    if (process.env.DEBUG === 'true') {
+      console.debug = console.log;
+    }  
     client.on('offline', () => console.log('MQTT client is offline'));
+    if (process.env.DEBUG === 'true') {
+      console.debug = console.log;
+    }
     client.on('message', (topic, message) => {
       const payload = message.toString();
       const parsed = parseMessagePayload(payload);
