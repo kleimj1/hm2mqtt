@@ -123,21 +123,13 @@ const requiredRuntimeInfoKeys = [
   'wor_m',
 ];
 function isVenusRuntimeInfoMessage(values: Record<string, string>): boolean {
-  const isCd1 = values['cd'] === '1';
-  const hasMinimumKeys = ['cel_p', 'cel_c', 'tot_i', 'tot_o'].every(key => key in values);
-
-  if (!isCd1) {
-    console.warn('[cd=1] Ignored message - "cd" is not 1:', values['cd']);
-    return false;
+  const cd = values['cd'];
+  console.debug(`[cd=1] Received "cd":`, cd);
+  const missing = requiredRuntimeInfoKeys.filter(key => !(key in values));
+  if (missing.length > 0) {
+    console.warn('[cd=1] Missing keys:', missing);
   }
-
-  if (!hasMinimumKeys) {
-    console.warn('[cd=1] Ignored message - missing critical keys (cel_p, cel_c, tot_i, tot_o)');
-    console.debug('[cd=1] Partial payload received:', values);
-    return false;
-  }
-
-  return true;
+  return cd === '1' && missing.length === 0;
 }
 
 
