@@ -93,7 +93,7 @@ export class MqttClient {
       if (!topics) {
         console.error(No topics found for device ${device.deviceId});
         return;
-      }
+      };
 
       this.subscribe(topics.deviceTopic);
       this.subscribeToControlTopics(device);
