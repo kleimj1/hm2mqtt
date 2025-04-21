@@ -91,7 +91,7 @@ export class MqttClient {
       const topics = this.deviceManager.getDeviceTopics(device);
 
       if (!topics) {
-        console.error(No topics found for device ${device.deviceId});
+        console.error(`No topics found for device "${device.deviceId}"`);
         return;
       };
 
