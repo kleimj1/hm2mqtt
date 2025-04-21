@@ -131,14 +131,7 @@ registerDeviceDefinition(
     deviceTypes: ['HMG'],
   },
   ({ message }) => {
-    registerRuntimeInfoMessage(message);
-  },
-);
-    registerDeviceDefinition(
-  {
-    deviceTypes: ['HMG'],
-  },
-  ({ message }) => {
+    // BMS-Informationen (cd=14)
     message<VenusDeviceData>({
       refreshDataPayload: 'cd=14',
       isMessage: isVenusBmsInfoMessage,
@@ -147,19 +140,17 @@ registerDeviceDefinition(
       getAdditionalDeviceInfo: extractAdditionalDeviceInfo,
       pollInterval: globalPollInterval,
     }, ({ field, advertise }) => {
-
       // Zellspannungen
       for (let i = 1; i <= 16; i++) {
         const key = `b_vo${i}`;
         field({ key, path: ['cellVoltages', i - 1] });
-        advertise(
-          ['cellVoltages', i - 1],
+        advertise(['cellVoltages', i - 1],
           sensorComponent<number>({
             id: `cell_voltage_${i}`,
             name: `Cell Voltage ${i}`,
             unit_of_measurement: 'mV',
             device_class: 'voltage',
-          }),
+          })
         );
       }
 
@@ -167,14 +158,13 @@ registerDeviceDefinition(
       for (let i = 1; i <= 4; i++) {
         const key = `b_tp${i}`;
         field({ key, path: ['cellTemperatures', i - 1] });
-        advertise(
-          ['cellTemperatures', i - 1],
+        advertise(['cellTemperatures', i - 1],
           sensorComponent<number>({
             id: `cell_temperature_${i}`,
             name: `Cell Temperature ${i}`,
             unit_of_measurement: '°C',
             device_class: 'temperature',
-          }),
+          })
         );
       }
 
@@ -199,17 +189,19 @@ registerDeviceDefinition(
 
       for (const [key, id] of bmsFields) {
         field({ key, path: ['bms', id] });
-        advertise(
-          ['bms', id],
+        advertise(['bms', id],
           sensorComponent<number>({
             id,
             name: id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
             unit_of_measurement: key === 'b_cur' ? 'mA' : undefined,
-          }),
+          })
         );
       }
     });
-  },
+
+    // Laufzeitdaten (cd=1)
+    registerRuntimeInfoMessage(message);
+  }
 );
 
 
