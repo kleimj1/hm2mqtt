@@ -68,7 +68,7 @@ export class MqttClient {
   private handleMessage(topic: string, message: Buffer): void {
     const msgStr = message.toString('utf8');
     const deviceId = topic.split('/')[3];
-    const device = this.deviceManager.getDeviceById(deviceId);
+    const device = this.deviceManager.getDevices().find(device => device.deviceId === deviceId);
 
     if (!device) {
       console.warn(`Device ${deviceId} not found for topic ${topic}`);
@@ -76,7 +76,7 @@ export class MqttClient {
     }
 
     const jsonData = parseKeyValueStringToJson(msgStr);
-    this.deviceManager.updateDeviceState(device, jsonData);
+    this.deviceManager.updateDeviceState(device, jsonData, state => ({ ...state, ...jsonData }));
 
     const topics = this.deviceManager.getDeviceTopics(device);
     if (topics) {
