@@ -33,7 +33,7 @@ export class MqttClient {
 
   constructor(
     private config: MqttConfig,
-    private deviceManager: DeviceManager
+    private deviceManager: DeviceManager,
     private messageHandler: (topic: string, message: Buffer) => void,
   ) {
     this.client = this.setupClient();
