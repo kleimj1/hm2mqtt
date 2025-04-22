@@ -76,7 +76,7 @@ export class MqttClient {
     }
 
     const jsonData = parseKeyValueStringToJson(msgStr);
-    this.deviceManager.updateDeviceState(device, jsonData, state => ({ ...state, ...jsonData }));
+    this.deviceManager.updateDeviceState(device, {}, state => ({ ...state, ...jsonData }));
 
     const topics = this.deviceManager.getDeviceTopics(device);
     if (topics) {
