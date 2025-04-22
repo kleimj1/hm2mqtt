@@ -1,9 +1,31 @@
-
 import * as mqtt from 'mqtt';
 import { Device, MqttConfig } from './types';
 import { DeviceManager } from './deviceManager';
 import { publishDiscoveryConfigs } from './generateDiscoveryConfigs';
 import { AdditionalDeviceInfo, BaseDeviceData, getDeviceDefinition } from './deviceDefinition';
+
+function parseKeyValueStringToJson(data: string): Record<string, any> {
+  const result: Record<string, any> = {};
+  const pairs = data.split(',');
+  for (const pair of pairs) {
+    const [key, value] = pair.split('=');
+    if (!key || value === undefined) continue;
+
+    // Sonderbehandlung für Zeitperioden (tim_*)
+    if (key.startsWith('tim_')) {
+      const periodIndex = parseInt(key.slice(4));
+      const [startH, startM, endH, endM, weekday, power, enabled] = value.split('|');
+      result[`timePeriods.${periodIndex}.startTime`] = `${startH}:${startM.padStart(2, '0')}`;
+      result[`timePeriods.${periodIndex}.endTime`] = `${endH}:${endM.padStart(2, '0')}`;
+      result[`timePeriods.${periodIndex}.weekday`] = weekday;
+      result[`timePeriods.${periodIndex}.power`] = parseInt(power, 10);
+      result[`timePeriods.${periodIndex}.enabled`] = enabled === '1';
+    } else {
+      result[key] = isNaN(Number(value)) ? value : Number(value);
+    }
+  }
+  return result;
+}
 
 export class MqttClient {
   private client: mqtt.MqttClient;
