@@ -76,7 +76,7 @@ export class MqttClient {
     }
 
     const jsonData = parseKeyValueStringToJson(msgStr);
-    this.deviceManager.updateDeviceState(device, {}, state => ({ ...state, ...jsonData }));
+    this.deviceManager.updateDeviceState(device, 'data', state => ({ ...state, ...jsonData }));
 
     const topics = this.deviceManager.getDeviceTopics(device);
     if (topics) {
@@ -175,5 +175,35 @@ export class MqttClient {
     console.log('MQTT Verbindung geschlossen');
     if (this.pollingInterval) clearInterval(this.pollingInterval);
     if (this.discoveryInterval) clearInterval(this.discoveryInterval);
+  }
+  // am Ende der Klasse MqttClient hinzufügen
+  async close(): Promise<void> {
+    console.log('Closing MQTT connection');
+    try {
+      await this.publish('hame_energy/availability', 'offline', { qos: 1, retain: true });
+      await Promise.all(
+        this.deviceManager.getDevices().map(device => {
+          const topics = this.deviceManager.getDeviceTopics(device);
+          if (topics) {
+            return this.publish(topics.availabilityTopic, 'offline', { qos: 1, retain: true });
+          }
+          return Promise.resolve();
+        }),
+      );
+    } catch (error) {
+      console.error('Error publishing offline status:', error);
+    }
+
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+      this.pollingInterval = null;
+    }
+
+    if (this.discoveryInterval) {
+      clearInterval(this.discoveryInterval);
+      this.discoveryInterval = null;
+    }
+
+    this.client.end();
   }
 }
