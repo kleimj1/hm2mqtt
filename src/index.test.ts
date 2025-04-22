@@ -1,13 +1,32 @@
-// 👇 Dein überarbeiteter vollständiger Jest-Test (inkl. Timer-Aufräumung)
-beforeAll(() => {
-  jest.clearAllMocks();
-  jest.useFakeTimers(); // Timer kontrollieren
-});
+import type { MqttClient } from 'mqtt';
 
-// Mock the mqtt module
+type MockHandler = (...args: any[]) => void;
+type HandlerMap = {
+  [key in 'message' | 'connect' | 'error' | 'close']?: MockHandler[];
+};
+
+jest.useFakeTimers();
+
+// Mock mqtt
 jest.mock('mqtt', () => {
-  const mockClient = {
-    on: jest.fn(),
+  const handlers: HandlerMap = {
+    message: [],
+    connect: [],
+    error: [],
+    close: [],
+  };
+
+  const mockClient: Partial<MqttClient> & {
+    __handlers: HandlerMap;
+    triggerEvent: (event: keyof HandlerMap, ...args: any[]) => void;
+  } = {
+    on: jest.fn().mockImplementation(function (this: any, event: keyof HandlerMap, handler: MockHandler) {
+      if (!handlers[event]) {
+        handlers[event] = [];
+      }
+      handlers[event]!.push(handler);
+      return this;
+    }),
     publish: jest.fn((topic, message, options, callback) => {
       if (callback) callback(null);
       return { messageId: '123' };
@@ -17,35 +36,19 @@ jest.mock('mqtt', () => {
     }),
     end: jest.fn(),
     connected: true,
-  };
-
-  const handlers = {
-    message: [],
-    connect: [],
-    error: [],
-    close: [],
-  };
-
-  mockClient.on.mockImplementation((event, handler) => {
-    if (handlers[event]) {
-      handlers[event].push(handler);
-    }
-    return mockClient;
-  });
-
-  mockClient.triggerEvent = (event, ...args) => {
-    if (handlers[event]) {
-      handlers[event].forEach(handler => handler(...args));
-    }
+    __handlers: handlers,
+    triggerEvent(event: keyof HandlerMap, ...args: any[]) {
+      handlers[event]?.forEach(handler => handler(...args));
+    },
   };
 
   return {
     connect: jest.fn(() => mockClient),
     __mockClient: mockClient,
-    __handlers: handlers,
   };
 });
 
+// Mock dotenv
 jest.mock('dotenv', () => ({
   config: jest.fn(() => {
     process.env.MQTT_BROKER_URL = 'mqtt://test-broker:1883';
@@ -60,7 +63,7 @@ jest.mock('dotenv', () => ({
 describe('MQTT Client', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.resetModules();
+    jest.resetModules(); // Reset module cache
   });
 
   test('should initialize MQTT client with correct options', () => {
@@ -91,7 +94,9 @@ describe('MQTT Client', () => {
     require('./index');
     const mockClient = require('mqtt').__mockClient;
     mockClient.triggerEvent('connect');
+
     jest.advanceTimersByTime(5000);
+
     expect(mockClient.publish).toHaveBeenCalledWith(
       expect.stringContaining('hame_energy/HMA-1/App/testdevice/ctrl'),
       expect.stringContaining('cd=1'),
@@ -102,7 +107,7 @@ describe('MQTT Client', () => {
 });
 
 afterEach(() => {
-  jest.clearAllTimers(); // Wichtig für Timer-Aufräumung
+  jest.clearAllTimers();
   jest.useRealTimers();
 });
 
