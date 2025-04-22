@@ -1,3 +1,4 @@
+
 import * as mqtt from 'mqtt';
 import { Device, MqttConfig } from './types';
 import { DeviceManager } from './deviceManager';
@@ -180,26 +181,21 @@ export class MqttClient {
 
     console.log(`Requesting device data for ${device.deviceId} on topic: ${controlTopic}`);
 
-    const needsRefreshRuntimeInfo = deviseDefinition.messages.some((message, idx) => {
-      const lastRequestTimeKey = `${device.deviceId}:${idx}`;
-      const lastRequestTime = this.lastRequestTime.get(lastRequestTimeKey);
-      const now = Date.now();
-      return lastRequestTime == null || now >= lastRequestTime + message.pollInterval;
-    });
-
-    if (!needsRefreshRuntimeInfo && !this.deviceManager.hasRunningResponseTimeouts(device)) {
-      const timeout = setTimeout(() => {
-        console.warn(`No response received from ${device.deviceId} within timeout period`);
-        this.publish(availabilityTopic, 'offline', { qos: 1, retain: true });
-      }, this.deviceManager.getResponseTimeout());
-
-      this.deviceManager.setResponseTimeout(device, timeout);
+    // Immer cd=1 senden – unabhängig vom Timing
+    const runtimeMessage = deviseDefinition.messages.find(m => m.refreshDataPayload === 'cd=1');
+    if (runtimeMessage) {
+      this.publish(controlTopic, runtimeMessage.refreshDataPayload, { qos: 1 }).catch(err => {
+        console.error(`Error requesting cd=1 for ${device.deviceId}:`, err);
+      });
     }
 
     for (const [idx, message] of deviseDefinition.messages.entries()) {
       let lastRequestTimeKey = `${device.deviceId}:${idx}`;
       const lastRequestTime = this.lastRequestTime.get(lastRequestTimeKey);
-      let now = Date.now();
+      const now = Date.now();
+
+      if (message.refreshDataPayload === 'cd=1') continue; // schon gesendet
+
       if (lastRequestTime == null || now > lastRequestTime + message.pollInterval) {
         this.lastRequestTime.set(lastRequestTimeKey, now);
         const payload = message.refreshDataPayload;
