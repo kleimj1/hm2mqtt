@@ -255,7 +255,7 @@ function main() {
 
     // Handle process termination
     process.on('SIGINT', async () => {
-      await mqttClient.close();
+      await mqttClient.disconnect();
       process.exit();
     });
 
