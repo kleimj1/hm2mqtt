@@ -179,6 +179,7 @@ export class MqttClient {
   // am Ende der Klasse MqttClient hinzufügen
   async close(): Promise<void> {
     console.log('Closing MQTT connection');
+    this.stopPolling(); // <--- Wichtig!
     try {
       await this.publish('hame_energy/availability', 'offline', { qos: 1, retain: true });
       await Promise.all(
@@ -205,5 +206,16 @@ export class MqttClient {
     }
 
     this.client.end();
+  }
+  public stopPolling(): void {
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+      this.pollingInterval = null;
+    }
+
+    if (this.discoveryInterval) {
+      clearInterval(this.discoveryInterval);
+      this.discoveryInterval = null;
+    }
   }
 }
