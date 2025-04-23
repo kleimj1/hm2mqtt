@@ -69,7 +69,7 @@ jest.mock('dotenv', () => ({
     process.env.MQTT_CLIENT_ID = 'test-client';
     process.env.MQTT_USERNAME = 'testuser';
     process.env.MQTT_PASSWORD = 'testpass';
-    process.env.DEVICE_1 = 'HMA-1:testdevice';
+    process.env.DEVICE_1 = 'HMG-25:testdevice';
     process.env.MQTT_POLLING_INTERVAL = '5000';
   }),
 }));
