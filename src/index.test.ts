@@ -1,6 +1,7 @@
-import type { MqttClient } from 'mqtt';
+import type { MqttClient, IClientPublishOptions, PacketCallback, ClientSubscribeCallback } from 'mqtt';
 
 type MQTTEvent = 'message' | 'connect' | 'error' | 'close';
+
 type HandlerMap = Record<MQTTEvent, Array<(...args: any[]) => void>>;
 
 jest.useFakeTimers();
@@ -15,24 +16,38 @@ jest.mock('mqtt', () => {
 
   const mockClient: Partial<MqttClient> & {
     __handlers: HandlerMap;
-    triggerEvent: (event: MQTTEvent, ...args: unknown[]) => void;
+    triggerEvent: (event: MQTTEvent, ...args: any[]) => void;
   } = {
-    on(event: MQTTEvent, handler: (...args: unknown[]) => void) {
+    on(event: MQTTEvent, handler: (...args: any[]) => void) {
       handlers[event].push(handler);
-      return this;
+      return this as MqttClient;
     },
-    publish: jest.fn((topic, message, options, callback) => {
-      if (callback) callback(null);
-      return { messageId: '123' };
-    }),
-    subscribe: jest.fn((topic, callback) => {
-      if (callback) callback(null);
-    }),
+    publish(
+      topic: string,
+      message: string | Buffer,
+      options?: IClientPublishOptions,
+      callback?: PacketCallback,
+    ) {
+      if (callback) callback();
+      return this as MqttClient;
+    },
+    subscribe(
+      topic: string,
+      options?: any,
+      callback?: ClientSubscribeCallback,
+    ) {
+      if (typeof options === 'function') {
+        options(null, []);
+      } else if (typeof callback === 'function') {
+        callback(null, []);
+      }
+      return this as MqttClient;
+    },
     end: jest.fn(),
     connected: true,
     __handlers: handlers,
-    triggerEvent(event: MQTTEvent, ...args: unknown[]) {
-      handlers[event].forEach(handler => handler(...args));
+    triggerEvent(event: MQTTEvent, ...args: any[]) {
+      handlers[event].forEach(fn => fn(...args));
     },
   };
 
@@ -87,9 +102,7 @@ describe('MQTT Client', () => {
     require('./index');
     const mockClient = require('mqtt').__mockClient;
     mockClient.triggerEvent('connect');
-
     jest.advanceTimersByTime(5000);
-
     expect(mockClient.publish).toHaveBeenCalledWith(
       expect.stringContaining('hame_energy/HMA-1/App/testdevice/ctrl'),
       expect.stringContaining('cd=1'),
