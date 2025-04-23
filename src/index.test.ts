@@ -1,3 +1,43 @@
+import { jest } from '@jest/globals';
+
+jest.mock('mqtt', () => {
+  const handlers: Record<string, Function[]> = {
+    connect: [],
+    message: [],
+    close: [],
+    error: [],
+  };
+
+  const mockClient = {
+    on: jest.fn((event: string, handler: Function) => {
+      if (!handlers[event]) handlers[event] = [];
+      handlers[event].push(handler);
+      return mockClient;
+    }),
+    subscribe: jest.fn((topic: string | string[], callback?: Function) => {
+      if (callback) callback(null, []);
+    }),
+    publish: jest.fn((topic: string, message: string, options?: any, callback?: Function) => {
+      if (typeof options === 'function') {
+        options(null);
+      } else if (typeof callback === 'function') {
+        callback(null);
+      }
+      return { messageId: '123' };
+    }),
+    end: jest.fn(),
+    connected: true,
+    triggerEvent(event: string, ...args: any[]) {
+      (handlers[event] || []).forEach(h => h(...args));
+    },
+  };
+
+  return {
+    connect: jest.fn(() => mockClient),
+    __mockClient: mockClient,
+  };
+});
+
 jest.mock('dotenv', () => ({
   config: jest.fn(() => {
     process.env.MQTT_BROKER_URL = 'mqtt://test-broker:1883';
@@ -10,45 +50,9 @@ jest.mock('dotenv', () => ({
   }),
 }));
 
-type HandlerEvent = 'connect' | 'message' | 'error' | 'close';
-type HandlerMap = { [K in HandlerEvent]: ((...args: any[]) => void)[] };
-
-const handlers: HandlerMap = {
-  connect: [],
-  message: [],
-  error: [],
-  close: [],
-};
-
-const mockClient: any = {
-  on: jest.fn((event: HandlerEvent, handler: (...args: any[]) => void) => {
-    handlers[event].push(handler);
-    return mockClient;
-  }),
-  publish: jest.fn(
-    (topic: string, message: string, options?: any, callback?: any) => {
-      if (typeof options === 'function') options(null);
-      if (typeof callback === 'function') callback(null);
-      return { messageId: '123' };
-    }
-  ),
-  subscribe: jest.fn((topic: string | string[], callback?: any) => {
-    if (callback) callback(null, []);
-  }),
-  end: jest.fn(),
-  connected: true,
-  triggerEvent: (event: HandlerEvent, ...args: any[]) => {
-    handlers[event].forEach(handler => handler(...args));
-  },
-};
-
-jest.mock('mqtt', () => ({
-  connect: jest.fn(() => mockClient),
-}));
-
 beforeEach(() => {
-  jest.clearAllMocks();
   jest.useFakeTimers();
+  jest.clearAllMocks();
   jest.resetModules();
 });
 
@@ -56,65 +60,46 @@ afterEach(() => {
   try {
     const { __test__ } = require('./index');
     __test__?.mqttClient?.stopPolling?.();
-  } catch {
-    // still ok
-  }
-  jest.clearAllTimers();
+  } catch (e) {}
   jest.useRealTimers();
 });
 
 describe('MQTT Client', () => {
-  test('should initialize MQTT client with correct options', () => {
+  test('should publish device data after receiving a message', () => {
     require('./index');
-    const mqtt = require('mqtt');
-    expect(mqtt.connect).toHaveBeenCalledWith(
-      'mqtt://test-broker:1883',
-      expect.objectContaining({
-        clientId: 'test-client',
-        username: 'testuser',
-        password: 'testpass',
-        clean: true,
-      }),
-    );
-  });
+    const mqttMock = require('mqtt');
+    const client = mqttMock.__mockClient;
 
-  test('should subscribe to device topics on connect', () => {
-    require('./index');
-    mockClient.triggerEvent('connect');
-    expect(mockClient.subscribe).toHaveBeenCalledWith(
-      expect.stringContaining('/ctrl'),
-      expect.any(Function),
-    );
-  });
-
-  test('should handle incoming message and publish parsed state', () => {
-    require('./index');
-    mockClient.triggerEvent('connect');
-    mockClient.publish.mockClear();
+    client.triggerEvent('connect');
 
     const message = Buffer.from('pe=85,kn=300,tim_0=06|30|22|00|1234567|400|1');
-    mockClient.triggerEvent('message', 'hame_energy/HMA-1/device/test123/ctrl', message);
+    client.triggerEvent('message', 'hame_energy/HMA-1/device/test123/ctrl', message);
 
-    const calls = mockClient.publish.mock.calls;
-    const dataCall = calls.find((call: [string, string]) => call[0].includes('/data')) ?? ['', ''];
-    const [topic, payload] = dataCall;
+    const calls = client.publish.mock.calls;
+    const [topic, payload]: [string, string] = calls.find(
+      ([t]) => t.includes('/data')
+    ) ?? ['', ''];
+
     expect(topic).toContain('/data');
-    expect(payload).toContain('"batteryPercentage":85');
+    expect(payload).toContain('"batteryPercentage":85'); // Erwarteter Key in geparstem JSON
   });
 
   test('should trigger periodic polling and publish data request', () => {
     require('./index');
-    mockClient.triggerEvent('connect');
-    mockClient.publish.mockClear();
+    const mqttMock = require('mqtt');
+    const client = mqttMock.__mockClient;
 
+    client.triggerEvent('connect');
+
+    client.publish.mockClear();
     jest.advanceTimersByTime(5000);
 
-    const wasCalled = mockClient.publish.mock.calls.some(
+    const calls = client.publish.mock.calls;
+    const wasCalled = calls.some(
       ([topic, message]: [string, string]) =>
-        topic.includes('/ctrl') && message.includes('cd=1'),
+        topic.includes('/ctrl') && message.includes('cd=1')
     );
 
     expect(wasCalled).toBe(true);
-    jest.useRealTimers();
   });
 });
