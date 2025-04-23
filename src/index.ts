@@ -295,12 +295,10 @@ try {
 // Export wichtige Instanzen für Unit-Tests
 if (process.env.NODE_ENV === 'test') {
   module.exports.__test__ = {
-    get mqttClient() {
-      return mqttClient;
-    },
-    get deviceManager() {
-      return deviceManager;
-    }
+    deviceManager,
+    mqttClient,
+    controlHandler,
+    dataHandler,
   };
 }
 // Log uncaught exceptions
