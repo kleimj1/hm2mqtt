@@ -59,7 +59,20 @@ beforeEach(() => {
   jest.clearAllMocks();
   jest.resetModules();
 });
+// 🔻 HIER EINFÜGEN
+afterEach(() => {
+  try {
+    const { __test__ } = require('./index');
+    if (__test__?.mqttClient?.stopPolling) {
+      __test__.mqttClient.stopPolling();
+    }
+  } catch (e) {
+    // ignorieren – Testmodule evtl. nicht geladen
+  }
 
+  jest.clearAllTimers();
+  jest.useRealTimers();
+});
 describe('MQTT Client', () => {
   test('should initialize MQTT client with correct options', () => {
     require('./index');
