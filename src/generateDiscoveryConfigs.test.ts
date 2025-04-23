@@ -58,29 +58,33 @@ describe('Home Assistant Discovery for HMG (Venus)', () => {
 
   test('should publish configs via MQTT and handle errors', () => {
     const mockClient = {
-      publish: jest.fn((topic, message, options, callback) => callback(null)),
+      publish: jest.fn((_topic, _message, _options, callback) => callback(null)),
     };
 
     publishDiscoveryConfigs(
       mockClient,
-      { deviceType: 'HMG', deviceId: 'testHMG' },
-      `hm2mqtt/testHMG/data`,
-      `hm2mqtt/testHMG/control`,
-      `hm2mqtt/testHMG/availability`
+      {
+        device: { deviceType: 'HMG', deviceId: 'testHMG' },
+        publishTopic: `hm2mqtt/testHMG/data`,
+        controlTopic: `hm2mqtt/testHMG/control`,
+        availabilityTopic: `hm2mqtt/testHMG/availability`
+      }
     );
 
     expect(mockClient.publish).toHaveBeenCalled();
 
     const mockClientWithError = {
-      publish: jest.fn((topic, message, options, callback) => callback(new Error('Test error'))),
+      publish: jest.fn((_topic, _message, _options, callback) => callback(new Error('Test error'))),
     };
 
     publishDiscoveryConfigs(
       mockClientWithError,
-      { deviceType: 'HMG', deviceId: 'testHMG' },
-      `hm2mqtt/testHMG/data`,
-      `hm2mqtt/testHMG/control`,
-      `hm2mqtt/testHMG/availability`
+      {
+        device: { deviceType: 'HMG', deviceId: 'testHMG' },
+        publishTopic: `hm2mqtt/testHMG/data`,
+        controlTopic: `hm2mqtt/testHMG/control`,
+        availabilityTopic: `hm2mqtt/testHMG/availability`
+      }
     );
   });
 });
