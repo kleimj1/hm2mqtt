@@ -22,11 +22,16 @@ describe('ControlHandler for HMG (Venus)', () => {
       responseTimeout: 15000,
     };
 
-    deviceManager = new DeviceManager(config);
+    const onUpdateState = jest.fn();
+    deviceManager = new DeviceManager(config, onUpdateState);
     publishCallback = jest.fn();
     controlHandler = new ControlHandler(deviceManager, publishCallback);
 
     deviceState = {
+      deviceType: 'HMG',
+      deviceId: 'testdeviceV1',
+      timestamp: new Date().toISOString(),
+      values: {},
       bms: {
         bms_soc: 70,
         bms_voltage: 5200,
@@ -36,7 +41,7 @@ describe('ControlHandler for HMG (Venus)', () => {
       workingStatus: 'charging',
     };
 
-    deviceManager.setDeviceState(testDeviceV1, deviceState);
+    deviceManager['deviceStates'][`${testDeviceV1.deviceType}:${testDeviceV1.deviceId}`] = { data: deviceState };
   });
 
   it('should handle known control topic', () => {
