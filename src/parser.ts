@@ -1,4 +1,4 @@
-import { B2500V2DeviceData } from './types';
+import { VenusDeviceData } from './types';
 import {
   KeyPath,
   BaseDeviceData,
