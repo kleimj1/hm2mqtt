@@ -1,30 +1,87 @@
-import { parseMessage } from './parser';
-import './device/venus';
 import { VenusDeviceData } from './types';
+import {
+  KeyPath,
+  getDeviceDefinition,
+  FieldDefinition,
+  TypeAtPath,
+} from './deviceDefinition';
+import { transformNumber } from './device/helpers';
 
-describe('MQTT Message Parser for HMG (Venus)', () => {
-  test('should parse cd=14 Venus BMS message correctly', () => {
-    const message = 'cd=14,b_soc=65,b_soh=100,b_vol=5223,b_cur=-94,b_tp1=25,b_vo1=3265';
-    const parsed = parseMessage(message, 'HMG', 'venus-001');
-    const bms = parsed['bms'] ?? {};
+/**
+ * Parse the incoming MQTT message and transform it into the required format
+ * for a Venus (HMG-25) device.
+ */
+export function parseMessage(
+  message: string,
+  deviceType: string,
+  deviceId: string,
+): Record<string, VenusDeviceData> {
+  const deviceDefinition = getDeviceDefinition(deviceType);
+  try {
+    const values: Record<string, string> = {};
+    for (const pair of message.split(',')) {
+      const [key, value] = pair.split('=');
+      if (key) values[key] = value;
+    }
 
-    expect(bms.bms_soc).toBe(65);
-    expect(bms.bms_soh).toBe(100);
-    expect(bms.bms_voltage).toBe(5223);
-    expect(bms.bms_current).toBe(-94);
-  });
+    const result: Record<string, VenusDeviceData> = {};
 
-  test('should parse cd=1 Venus runtime message correctly', () => {
-    const message = 'cd=1,cel_p=300,cel_c=60,tot_i=1200,tot_o=800,grd_t=3,grd_m=5400,ele_d=123';
-    const parsed = parseMessage(message, 'HMG', 'venus-001');
-    const data = parsed['data'] ?? {};
+    for (const messageDefinition of deviceDefinition?.messages ?? []) {
+      if (messageDefinition.isMessage(values)) {
+        const parsedData: VenusDeviceData = {
+          deviceType,
+          deviceId,
+          timestamp: new Date().toISOString(),
+          values,
+        } as VenusDeviceData;
 
-    expect(data.batteryCapacity).toBe(3000);
-    expect(data.batterySoc).toBe(60);
-    expect(data.totalChargingCapacity).toBe(12);
-    expect(data.totalDischargeCapacity).toBe(8);
-    expect(data.workingStatus).toBe('discharging');
-    expect(data.monthlyDischargeCapacity).toBe(54);
-    expect(data.dailyChargingCapacity).toBe(1.23);
-  });
-});
+        applyMessageDefinition(parsedData, values, messageDefinition.fields ?? []);
+        result[messageDefinition.publishPath] = parsedData;
+      }
+    }
+
+    return result;
+  } catch (error) {
+    console.error('Error parsing message:', error);
+    throw new Error(
+      `Failed to parse message: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
+function applyMessageDefinition<T extends VenusDeviceData>(
+  parsedData: T,
+  values: Record<string, string>,
+  fields: FieldDefinition<T, KeyPath<T>>[],
+): void {
+  for (const field of fields) {
+    if (typeof field.key === 'string') {
+      const transform = field.transform ?? transformNumber;
+      const value = values[field.key];
+      if (value != null) {
+        const transformed = transform(value);
+        setValueAtPath(parsedData, field.path, transformed);
+      }
+    } else if (field.transform) {
+      const inputValues = Object.fromEntries(
+        field.key.map(key => [key, values[key]] as const),
+      );
+      const transformed = field.transform(inputValues);
+      setValueAtPath(parsedData, field.path, transformed);
+    }
+  }
+}
+
+function setValueAtPath<T>(obj: T, path: KeyPath<T>, value: any): void {
+  let current = obj as any;
+  for (let i = 0; i < path.length - 1; i++) {
+    const key = path[i];
+    if (current[key] === undefined) {
+      const nextKey = path[i + 1];
+      const isArray = typeof nextKey === 'number' || (typeof nextKey === 'string' && !isNaN(+nextKey));
+      current[key] = isArray ? [] : {};
+    }
+    current = current[key];
+  }
+  current[path[path.length - 1]] = value;
+}
