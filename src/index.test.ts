@@ -97,4 +97,52 @@ describe('MQTT Client', () => {
     require('./index');
     const mockClient = require('mqtt').__mockClient;
     mockClient.triggerEvent('connect');
-    expect(mockClient.subscribe).toHaveBeen
+    expect(mockClient.subscribe).toHaveBeenCalledWith(
+      expect.stringContaining('device/testdevice/ctrl'),
+      expect.any(Function),
+    );
+  });
+
+  test('should handle incoming message and publish parsed state', () => {
+    require('./index');
+    const mockClient = require('mqtt').__mockClient;
+
+    mockClient.triggerEvent('connect');
+    mockClient.publish.mockClear();
+
+    const message = Buffer.from('pe=85,kn=300,tim_0=06|30|22|00|1234567|400|1');
+    mockClient.triggerEvent('message', 'hame_energy/HMA-1/device/testdevice/ctrl', message);
+
+    const calls = mockClient.publish.mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+
+    const [topic, payload]: [string, string] = calls.find(([t]) => t.includes('/data')) ?? [];
+    expect(topic).toContain('/data');
+    expect(payload).toContain('"batteryPercentage":85');
+  });
+
+  test('should trigger periodic polling and publish data request', () => {
+    jest.useFakeTimers();
+    require('./index');
+    const mockClient = require('mqtt').__mockClient;
+
+    mockClient.triggerEvent('connect');
+    mockClient.publish.mockClear();
+
+    jest.advanceTimersByTime(5000);
+
+    const call = mockClient.publish.mock.calls.find(
+      ([topic, message]: [string, string]) =>
+        topic.includes('/ctrl') && message.includes('cd=1'),
+    );
+
+    expect(call).toBeDefined();
+
+    jest.useRealTimers();
+  });
+});
+
+afterAll(() => {
+  jest.clearAllTimers();
+  jest.restoreAllMocks();
+});
