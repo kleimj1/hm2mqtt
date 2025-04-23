@@ -7,19 +7,19 @@ describe('ControlHandler for HMG (Venus)', () => {
   let controlHandler: ControlHandler;
   let deviceManager: DeviceManager;
   let publishCallback: jest.Mock;
-  let testDeviceV1: Device;
+  let testDevice: Device;
   let deviceState: VenusDeviceData;
 
   beforeEach(() => {
-    testDeviceV1 = {
+    testDevice = {
       deviceType: 'HMG',
-      deviceId: 'testdeviceV1',
+      deviceId: 'testHMG',
     };
 
     const config: MqttConfig = {
-      brokerUrl: 'mqtt://test.mosquitto.org',
+      brokerUrl: 'mqtt://test-broker',
       clientId: 'test-client',
-      devices: [testDeviceV1],
+      devices: [testDevice],
       responseTimeout: 15000,
     };
 
@@ -30,33 +30,33 @@ describe('ControlHandler for HMG (Venus)', () => {
 
     deviceState = {
       deviceType: 'HMG',
-      deviceId: 'testdeviceV1',
+      deviceId: 'testHMG',
       timestamp: new Date().toISOString(),
       values: {},
       bms: {
         bms_soc: 70,
-        bms_voltage: 5200,
+        bms_voltage: 5223,
       },
       batterySoc: 70,
       combinedPower: 1500,
       workingStatus: 'charging',
     };
 
-    const key = `${testDeviceV1.deviceType}:${testDeviceV1.deviceId}`;
-    deviceManager['deviceStates'][key] = { data: deviceState };
-    deviceManager['deviceTopics'][key] = {
-      deviceTopic: `hm2mqtt/${testDeviceV1.deviceId}`,
-      deviceControlTopic: `hm2mqtt/${testDeviceV1.deviceId}/ctrl`,
-      controlSubscriptionTopic: `hm2mqtt/${testDeviceV1.deviceId}/control`,
-      availabilityTopic: `hm2mqtt/${testDeviceV1.deviceId}/availability`,
-      publishTopic: `hm2mqtt/${testDeviceV1.deviceId}/data`,
+    const key = `${testDevice.deviceType}:${testDevice.deviceId}`;
+    (deviceManager as any)['deviceStates'][key] = { data: deviceState };
+    (deviceManager as any)['deviceTopics'][key] = {
+      deviceTopic: 'hm2mqtt/testHMG',
+      publishTopic: 'hm2mqtt/testHMG/data',
+      deviceControlTopic: 'hm2mqtt/testHMG/ctrl',
+      controlSubscriptionTopic: 'hm2mqtt/testHMG/control',
+      availabilityTopic: 'hm2mqtt/testHMG/availability',
     };
   });
 
   it('should handle known control topic', () => {
-    const topic = `hm2mqtt/${testDeviceV1.deviceId}/control/refresh`;
+    const topic = 'hm2mqtt/testHMG/control/refresh';
     const message = 'PRESS';
-    controlHandler.handleControlTopic(testDeviceV1, topic, message);
+    controlHandler.handleControlTopic(testDevice, topic, message);
     expect(publishCallback).toHaveBeenCalled();
   });
 });
