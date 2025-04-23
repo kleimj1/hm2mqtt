@@ -5,23 +5,14 @@ import { AdditionalDeviceInfo } from './deviceDefinition';
 
 describe('Home Assistant Discovery for HMG (Venus)', () => {
   test('should generate discovery configs for an HMG-25 device', () => {
-    const deviceType = 'HMG';
-    const deviceId = 'testHMG';
-    const deviceTopic = `hm2mqtt/${deviceId}/ctrl`;
-    const publishTopic = `hm2mqtt/${deviceId}/data`;
-    const deviceControlTopic = `hm2mqtt/${deviceId}/ctrl`;
-    const controlSubscriptionTopic = `hm2mqtt/${deviceId}/control`;
-    const availabilityTopic = `hm2mqtt/${deviceId}/availability`;
-
-    const device: Device = { deviceType, deviceId };
+    const device: Device = { deviceType: 'HMG', deviceId: 'testHMG' };
     const deviceTopics: DeviceTopics = {
-      deviceTopic,
-      deviceControlTopic,
-      availabilityTopic,
-      controlSubscriptionTopic,
-      publishTopic,
+      deviceTopic: 'hm2mqtt/testHMG/ctrl',
+      publishTopic: 'hm2mqtt/testHMG/data',
+      deviceControlTopic: 'hm2mqtt/testHMG/ctrl',
+      controlSubscriptionTopic: 'hm2mqtt/testHMG/control',
+      availabilityTopic: 'hm2mqtt/testHMG/availability',
     };
-
     const additionalDeviceInfo: AdditionalDeviceInfo = {};
     const configs = generateDiscoveryConfigs(device, deviceTopics, additionalDeviceInfo);
 
@@ -31,7 +22,14 @@ describe('Home Assistant Discovery for HMG (Venus)', () => {
   test('should publish configs via MQTT and handle errors', () => {
     const mockClient = {
       publish: jest.fn((_topic, _message, _options, callback) => callback(null)),
-    };
+      connected: true,
+      disconnected: false,
+      reconnecting: false,
+      on: jest.fn(),
+      end: jest.fn(),
+      subscribe: jest.fn(),
+    } as any;
+
     const device: Device = { deviceType: 'HMG', deviceId: 'testHMG' };
     const deviceTopics: DeviceTopics = {
       deviceTopic: 'hm2mqtt/testHMG/ctrl',
