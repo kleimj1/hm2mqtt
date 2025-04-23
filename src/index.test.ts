@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import './device/venus';
 
 jest.mock('mqtt', () => {
   const handlers: Record<string, Function[]> = {
