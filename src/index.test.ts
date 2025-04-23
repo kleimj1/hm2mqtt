@@ -76,9 +76,7 @@ describe('MQTT Client', () => {
     client.triggerEvent('message', 'hame_energy/HMA-1/device/test123/ctrl', message);
 
     const calls = client.publish.mock.calls;
-    const [topic, payload]: [string, string] = calls.find(
-      ([t]) => t.includes('/data')
-    ) ?? ['', ''];
+    const [topic, payload]: [string, string] = calls.find(([t]: [string, string]) => t.includes('/data')) ?? ['', ''];
 
     expect(topic).toContain('/data');
     expect(payload).toContain('"batteryPercentage":85'); // Erwarteter Key in geparstem JSON
