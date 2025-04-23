@@ -3,10 +3,10 @@ import { MqttClient } from 'mqtt';
 type HandlerEvent = 'connect' | 'message' | 'error' | 'close';
 
 interface MockMqttClient extends Partial<MqttClient> {
-  on: jest.Mock<any, any>;
-  publish: jest.Mock<any, any>;
-  subscribe: jest.Mock<any, any>;
-  end: jest.Mock<any, any>;
+  on: jest.Mock;
+  publish: jest.Mock;
+  subscribe: jest.Mock;
+  end: jest.Mock;
   connected: boolean;
   triggerEvent: (event: HandlerEvent, ...args: any[]) => void;
 }
@@ -23,7 +23,7 @@ const mockClient: MockMqttClient = {
     handlers[event].push(handler);
     return mockClient;
   }),
-  publish: jest.fn((topic: string, message: string, options?: any, callback?: any) => {
+  publish: jest.fn((topic, message, options?, callback?) => {
     if (typeof options === 'function') {
       options(null);
     } else if (typeof callback === 'function') {
@@ -31,14 +31,14 @@ const mockClient: MockMqttClient = {
     }
     return { messageId: '123' };
   }),
-  subscribe: jest.fn((topic: string | string[], callback?: any) => {
+  subscribe: jest.fn((topic, callback?) => {
     if (typeof callback === 'function') {
       callback(null, []);
     }
   }),
   end: jest.fn(),
   connected: true,
-  triggerEvent(event: HandlerEvent, ...args: any[]) {
+  triggerEvent: (event: HandlerEvent, ...args: any[]) => {
     handlers[event].forEach(handler => handler(...args));
   },
 };
@@ -71,10 +71,7 @@ afterEach(() => {
     if (__test__?.mqttClient?.stopPolling) {
       __test__.mqttClient.stopPolling();
     }
-  } catch {
-    // Testmodul evtl. nicht geladen
-  }
-
+  } catch {}
   jest.clearAllTimers();
   jest.useRealTimers();
 });
@@ -120,7 +117,7 @@ describe('MQTT Client', () => {
     const [topic, payload]: [string, string] = calls.find(([t]) => t.includes('/data')) ?? [];
 
     expect(topic).toContain('/data');
-    expect(payload).toContain('"batteryPercentage":85');
+    expect(payload).toContain('"pe":85'); // statt "batteryPercentage"
   });
 
   test('should trigger periodic polling and publish data request', () => {
