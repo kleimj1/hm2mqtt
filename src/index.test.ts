@@ -1,7 +1,12 @@
+import type {
+  MqttClient,
+  IClientPublishOptions,
+  PacketCallback,
+  IClientSubscribeOptions,
+  ClientSubscribeCallback,
+} from 'mqtt';
 
-import type { MqttClient, IClientPublishOptions, PacketCallback, ClientSubscribeCallback } from 'mqtt';
-
-type MQTTEvent = 'message' | 'connect' | 'error' | 'close';
+type MQTTEvent = 'connect' | 'message' | 'error' | 'close';
 
 type HandlerMap = Record<MQTTEvent, Array<(...args: any[]) => void>>;
 
@@ -9,8 +14,8 @@ jest.useFakeTimers();
 
 jest.mock('mqtt', () => {
   const handlers: HandlerMap = {
-    message: [],
     connect: [],
+    message: [],
     error: [],
     close: [],
   };
@@ -21,7 +26,7 @@ jest.mock('mqtt', () => {
   } = {
     on(event: MQTTEvent, handler: (...args: any[]) => void) {
       handlers[event].push(handler);
-      return this as MqttClient;
+      return this as unknown as MqttClient;
     },
     publish(
       topic: string,
@@ -29,20 +34,17 @@ jest.mock('mqtt', () => {
       options?: IClientPublishOptions,
       callback?: PacketCallback,
     ) {
-      if (typeof callback === 'function') callback();
-      return this as MqttClient;
+      if (callback) callback();
+      return this as unknown as MqttClient;
     },
     subscribe(
-      topic: string,
-      options?: any,
+      topic: string | string[],
+      options?: IClientSubscribeOptions | ClientSubscribeCallback,
       callback?: ClientSubscribeCallback,
     ) {
-      if (typeof options === 'function') {
-        options(null, []);
-      } else if (typeof callback === 'function') {
-        callback(null, []);
-      }
-      return this as MqttClient;
+      const cb = typeof options === 'function' ? options : callback;
+      if (cb) cb(null, [{ topic: typeof topic === 'string' ? topic : topic[0], qos: 0 }]);
+      return this as unknown as MqttClient;
     },
     end: jest.fn(),
     connected: true,
