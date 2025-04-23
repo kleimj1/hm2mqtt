@@ -29,15 +29,11 @@ jest.mock('mqtt', () => {
       options?: IClientPublishOptions,
       callback?: PacketCallback,
     ) {
-      if (typeof options === 'function') {
-        options(); // options used as callback
-      } else if (typeof callback === 'function') {
-        callback();
-      }
+      if (typeof callback === 'function') callback();
       return this as MqttClient;
     },
     subscribe(
-      topic: string | string[],
+      topic: string,
       options?: any,
       callback?: ClientSubscribeCallback,
     ) {
