@@ -268,7 +268,15 @@ function main() {
         dataHandler,
       };
     }
-
+    // Export für Tests innerhalb von main(), nach Initialisierung
+    if (process.env.NODE_ENV === 'test') {
+      module.exports.__test__ = {
+        deviceManager,
+        mqttClient,
+        controlHandler,
+        dataHandler,
+      };
+    }
     console.log('Application initialized successfully');
   } catch (error) {
     console.error('Failed to initialize application:', error);
@@ -292,15 +300,7 @@ try {
   // Exit with error code
   process.exit(1);
 }
-// Export wichtige Instanzen für Unit-Tests
-if (process.env.NODE_ENV === 'test') {
-  module.exports.__test__ = {
-    deviceManager,
-    mqttClient,
-    controlHandler,
-    dataHandler,
-  };
-}
+
 // Log uncaught exceptions
 process.on('uncaughtException', error => {
   console.error('Uncaught exception:', error);
