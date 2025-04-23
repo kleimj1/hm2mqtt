@@ -64,6 +64,29 @@ function applyMessageDefinition<T extends BaseDeviceData>(
   values: Record<string, string>,
   fields: FieldDefinition<T, KeyPath<T>>[],
 ): void {
+  const keyAliases: Record<string, KeyPath<T>> = {
+    pe: ['batteryPercentage'] as KeyPath<T>,
+    kn: ['batteryCapacity'] as KeyPath<T>,
+    w1: ['solarPower', 'input1'] as KeyPath<T>,
+    w2: ['solarPower', 'input2'] as KeyPath<T>,
+    g1: ['gridPower', 'input1'] as KeyPath<T>,
+    g2: ['gridPower', 'input2'] as KeyPath<T>,
+    // Weitere Aliase hinzufügen
+  };
+
+  for (const field of fields) {
+    let key = field.key;
+    const transform = field.transform ?? transformNumber;
+
+    if (typeof key === 'string') {
+      const value = values[key];
+      const path = keyAliases[key] ?? field.path; // ✨ Priorität für Aliase
+
+      if (value != null) {
+        const transformedValue = transform(value);
+        setValueAtPath(parsedData, path, transformedValue);
+      }
+    }
   for (const field of fields) {
     let key = field.key;
     if (typeof key === 'string') {
