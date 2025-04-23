@@ -1,3 +1,7 @@
+beforeAll(() => {
+  jest.clearAllMocks();
+});
+
 jest.mock('mqtt', () => {
   const mockClient = {
     on: jest.fn(),
@@ -52,6 +56,7 @@ jest.mock('dotenv', () => ({
     process.env.MQTT_PASSWORD = 'testpass';
     process.env.DEVICE_1 = 'HMA-1:testdevice';
     process.env.MQTT_POLLING_INTERVAL = '5000';
+    process.env.NODE_ENV = 'test';
   }),
 }));
 
@@ -59,7 +64,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   jest.resetModules();
 });
-// 🔻 HIER EINFÜGEN
+
 afterEach(() => {
   try {
     const { __test__ } = require('./index');
@@ -67,12 +72,13 @@ afterEach(() => {
       __test__.mqttClient.stopPolling();
     }
   } catch (e) {
-    // ignorieren – Testmodule evtl. nicht geladen
+    // ignorieren – Testmodul evtl. nicht geladen
   }
 
   jest.clearAllTimers();
   jest.useRealTimers();
 });
+
 describe('MQTT Client', () => {
   test('should initialize MQTT client with correct options', () => {
     require('./index');
