@@ -7,6 +7,7 @@ import { AdditionalDeviceInfo, BaseDeviceData, getDeviceDefinition } from './dev
 function parseKeyValueStringToJson(data: string): Record<string, any> {
   const result: Record<string, any> = {};
   const pairs = data.split(',');
+
   for (const pair of pairs) {
     const [key, value] = pair.split('=');
     if (!key || value === undefined) continue;
@@ -20,12 +21,22 @@ function parseKeyValueStringToJson(data: string): Record<string, any> {
       result[`timePeriods.${idx}.power`] = parseInt(power, 10);
       result[`timePeriods.${idx}.enabled`] = enabled === '1';
     } else {
-      result[key] = isNaN(Number(value)) ? value : Number(value);
+      // Mapping bekannter Abkürzungen auf semantische Keys
+      switch (key) {
+        case 'pe':
+          result['batteryPercentage'] = Number(value);
+          break;
+        case 'kn':
+          result['batteryCapacity'] = Number(value);
+          break;
+        default:
+          result[key] = isNaN(Number(value)) ? value : Number(value);
+      }
     }
   }
+
   return result;
 }
-
 export class MqttClient {
   private client: mqtt.MqttClient;
   private pollingInterval: NodeJS.Timeout | null = null;
