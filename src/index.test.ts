@@ -1,57 +1,36 @@
-import { MqttClient as RealMqttClient } from 'mqtt';
-import type {
-  IClientPublishOptions,
-  PacketCallback,
-  IClientSubscribeOptions,
-  ClientSubscribeCallback,
-} from 'mqtt';
-
-type MQTTEvent = 'connect' | 'message' | 'error' | 'close';
-
-type HandlerMap = Record<MQTTEvent, Array<(...args: any[]) => void>>;
-
 jest.useFakeTimers();
 
 jest.mock('mqtt', () => {
-  const handlers: HandlerMap = {
+  const handlers: Record<string, Function[]> = {
     connect: [],
     message: [],
     error: [],
     close: [],
   };
 
-  const mockClient = {
-    on(event: MQTTEvent, handler: (...args: any[]) => void) {
+  const mockClient: any = {
+    on(event: string, handler: (...args: any[]) => void) {
+      handlers[event] = handlers[event] || [];
       handlers[event].push(handler);
       return mockClient;
     },
-    publish(
-      topic: string,
-      message: string | Buffer,
-      options?: IClientPublishOptions,
-      callback?: PacketCallback,
-    ) {
+    publish(topic: string, message: string | Buffer, options?: any, callback?: any) {
       if (typeof options === 'function') {
-        options(); // callback wurde als 3. Argument übergeben
+        options(null); // callback als 3. Parameter
       } else if (typeof callback === 'function') {
-        callback();
+        callback(null);
       }
       return mockClient;
     },
-    subscribe(
-      topic: string | string[],
-      options?: IClientSubscribeOptions | ClientSubscribeCallback,
-      callback?: ClientSubscribeCallback,
-    ) {
+    subscribe(topic: string | string[], options?: any, callback?: any) {
       const cb = typeof options === 'function' ? options : callback;
-      if (cb) cb(null, [{ topic: typeof topic === 'string' ? topic : topic[0], qos: 0 }]);
+      if (cb) cb(null, [{ topic: Array.isArray(topic) ? topic[0] : topic, qos: 0 }]);
       return mockClient;
     },
     end: jest.fn(),
     connected: true,
-    __handlers: handlers,
-    triggerEvent(event: MQTTEvent, ...args: any[]) {
-      handlers[event].forEach(fn => fn(...args));
+    triggerEvent(event: string, ...args: any[]) {
+      (handlers[event] || []).forEach(fn => fn(...args));
     },
   };
 
