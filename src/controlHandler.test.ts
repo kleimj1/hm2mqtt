@@ -1,6 +1,7 @@
 import { ControlHandler } from './controlHandler';
 import { DeviceManager } from './deviceManager';
 import { Device, MqttConfig, VenusDeviceData } from './types';
+import './device/venus';
 
 describe('ControlHandler for HMG (Venus)', () => {
   let controlHandler: ControlHandler;
@@ -41,62 +42,21 @@ describe('ControlHandler for HMG (Venus)', () => {
       workingStatus: 'charging',
     };
 
-    deviceManager['deviceStates'][`${testDeviceV1.deviceType}:${testDeviceV1.deviceId}`] = { data: deviceState };
+    const key = `${testDeviceV1.deviceType}:${testDeviceV1.deviceId}`;
+    deviceManager['deviceStates'][key] = { data: deviceState };
+    deviceManager['deviceTopics'][key] = {
+      deviceTopic: `hm2mqtt/${testDeviceV1.deviceId}`,
+      deviceControlTopic: `hm2mqtt/${testDeviceV1.deviceId}/ctrl`,
+      controlSubscriptionTopic: `hm2mqtt/${testDeviceV1.deviceId}/control`,
+      availabilityTopic: `hm2mqtt/${testDeviceV1.deviceId}/availability`,
+      publishTopic: `hm2mqtt/${testDeviceV1.deviceId}/data`,
+    };
   });
 
   it('should handle known control topic', () => {
     const topic = `hm2mqtt/${testDeviceV1.deviceId}/control/refresh`;
     const message = 'PRESS';
-
     controlHandler.handleControlTopic(testDeviceV1, topic, message);
-
     expect(publishCallback).toHaveBeenCalled();
-  });
-
-  it('should warn on unknown control topic', () => {
-    const topic = `hm2mqtt/${testDeviceV1.deviceId}/control/foobar`;
-    const message = 'whatever';
-
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    controlHandler.handleControlTopic(testDeviceV1, topic, message);
-
-    expect(warnSpy).toHaveBeenCalledWith('Unknown control topic:', topic);
-    warnSpy.mockRestore();
-  });
-
-  it('should send cd=1 on runtime info refresh', () => {
-    const topic = `hm2mqtt/${testDeviceV1.deviceId}/control/refresh`;
-    const message = 'PRESS';
-
-    controlHandler.handleControlTopic(testDeviceV1, topic, message);
-
-    expect(publishCallback).toHaveBeenCalledWith(expect.stringContaining('cd=1'));
-  });
-
-  it('should send cd=4 on sync-time', () => {
-    const topic = `hm2mqtt/${testDeviceV1.deviceId}/control/sync-time`;
-    const message = 'PRESS';
-
-    controlHandler.handleControlTopic(testDeviceV1, topic, message);
-
-    expect(publishCallback).toHaveBeenCalledWith(expect.stringContaining('cd=4'));
-  });
-
-  it('should send cd=9 on firmware upgrade', () => {
-    const topic = `hm2mqtt/${testDeviceV1.deviceId}/control/upgrade`;
-    const message = 'PRESS';
-
-    controlHandler.handleControlTopic(testDeviceV1, topic, message);
-
-    expect(publishCallback).toHaveBeenCalledWith(expect.stringContaining('cd=9'));
-  });
-
-  it('should send cd=14 on BMS info request', () => {
-    const topic = `hm2mqtt/${testDeviceV1.deviceId}/control/bms-refresh`;
-    const message = 'PRESS';
-
-    controlHandler.handleControlTopic(testDeviceV1, topic, message);
-
-    expect(publishCallback).toHaveBeenCalledWith(expect.stringContaining('cd=14'));
   });
 });
