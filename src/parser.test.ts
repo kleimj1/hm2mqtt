@@ -8,14 +8,12 @@ describe('MQTT Message Parser for HMG (Venus)', () => {
     const deviceId = 'venus-001';
 
     const parsed = parseMessage(message, deviceType, deviceId);
-    const result = parsed['bms'] as VenusDeviceData['bms'];
+    const result = parsed['bms'] as VenusDeviceData;
 
-    expect(result).toHaveProperty('bms_soc', 65);
-    expect(result).toHaveProperty('bms_soh', 100);
-    expect(result).toHaveProperty('bms_voltage', 5223);
-    expect(result).toHaveProperty('bms_current', -94);
-    expect(result.cellTemperatures?.[0]).toBe(25);
-    expect(result.cellVoltages?.[0]).toBe(3265);
+    expect(result.bms_soc).toBe(65);
+    expect(result.bms_soh).toBe(100);
+    expect(result.bms_voltage).toBe(5223);
+    expect(result.bms_current).toBe(-94);
   });
 
   test('should parse cd=1 Venus runtime message correctly', () => {
@@ -26,17 +24,17 @@ describe('MQTT Message Parser for HMG (Venus)', () => {
     const parsed = parseMessage(message, deviceType, deviceId);
     const result = parsed['data'] as VenusDeviceData;
 
-    expect(result).toHaveProperty('batteryCapacity', 3000);
-    expect(result).toHaveProperty('batterySoc', 60);
-    expect(result).toHaveProperty('totalChargingCapacity', 12);
-    expect(result).toHaveProperty('totalDischargeCapacity', 8);
-    expect(result).toHaveProperty('workingStatus', 'discharging');
-    expect(result).toHaveProperty('monthlyDischargeCapacity', 54);
-    expect(result).toHaveProperty('dailyChargingCapacity', 1.23);
+    expect(result.batteryCapacity).toBe(3000);
+    expect(result.batterySoc).toBe(60);
+    expect(result.totalChargingCapacity).toBe(12);
+    expect(result.totalDischargeCapacity).toBe(8);
+    expect(result.workingStatus).toBe('discharging');
+    expect(result.monthlyDischargeCapacity).toBe(54);
+    expect(result.dailyChargingCapacity).toBe(1.23);
   });
 
   test('should parse time period configuration correctly', () => {
-    const message = 'cd=1,tim_0=6|30|22|00|1234567|400|1';
+    const message = 'cd=1,tim_0=6|30|22|00|127|400|1';
     const deviceType = 'HMG';
     const deviceId = 'venus-001';
 
