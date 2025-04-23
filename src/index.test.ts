@@ -1,36 +1,66 @@
+import type {
+  MqttClient,
+  IClientPublishOptions,
+  PacketCallback,
+  ClientSubscribeCallback,
+} from 'mqtt';
+
+type MQTTEvent = 'message' | 'connect' | 'error' | 'close';
+
+type HandlerMap = Record<MQTTEvent, Array<(...args: any[]) => void>>;
+
 jest.useFakeTimers();
 
+// MOCK: mqtt
 jest.mock('mqtt', () => {
-  const handlers: Record<string, Function[]> = {
-    connect: [],
+  const handlers: HandlerMap = {
     message: [],
+    connect: [],
     error: [],
     close: [],
   };
 
-  const mockClient: any = {
-    on(event: string, handler: (...args: any[]) => void) {
-      handlers[event] = handlers[event] || [];
+  const mockClient: Partial<MqttClient> & {
+    __handlers: HandlerMap;
+    triggerEvent: (event: MQTTEvent, ...args: any[]) => void;
+  } = {
+    on(event: MQTTEvent, handler: (...args: any[]) => void) {
       handlers[event].push(handler);
-      return mockClient;
+      return this as MqttClient;
     },
-    publish(topic: string, message: string | Buffer, options?: any, callback?: any) {
+
+    publish(
+      topic: string,
+      message: string | Buffer,
+      options?: IClientPublishOptions,
+      callback?: PacketCallback,
+    ) {
       if (typeof options === 'function') {
-        options(null); // callback als 3. Parameter
+        options(); // fallback wenn callback versehentlich in options steckt
       } else if (typeof callback === 'function') {
-        callback(null);
+        callback();
       }
-      return mockClient;
+      return this as MqttClient;
     },
-    subscribe(topic: string | string[], options?: any, callback?: any) {
+
+    subscribe(
+      topic: string | string[],
+      options?: any,
+      callback?: ClientSubscribeCallback,
+    ) {
       const cb = typeof options === 'function' ? options : callback;
-      if (cb) cb(null, [{ topic: Array.isArray(topic) ? topic[0] : topic, qos: 0 }]);
-      return mockClient;
+      if (typeof cb === 'function') {
+        cb(null, [{ topic: Array.isArray(topic) ? topic[0] : topic, qos: 0 }]);
+      }
+      return this as MqttClient;
     },
+
     end: jest.fn(),
     connected: true,
-    triggerEvent(event: string, ...args: any[]) {
-      (handlers[event] || []).forEach(fn => fn(...args));
+
+    __handlers: handlers,
+    triggerEvent(event: MQTTEvent, ...args: any[]) {
+      handlers[event].forEach(fn => fn(...args));
     },
   };
 
@@ -40,6 +70,7 @@ jest.mock('mqtt', () => {
   };
 });
 
+// MOCK: dotenv
 jest.mock('dotenv', () => ({
   config: jest.fn(() => {
     process.env.MQTT_BROKER_URL = 'mqtt://test-broker:1883';
