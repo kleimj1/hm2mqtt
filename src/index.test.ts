@@ -1,4 +1,10 @@
-import type { MqttClient, IClientPublishOptions, PacketCallback, ClientSubscribeCallback } from 'mqtt';
+import type {
+  MqttClient,
+  IClientPublishOptions,
+  PacketCallback,
+  ClientSubscribeCallback,
+  IClientSubscribeOptions,
+} from 'mqtt';
 
 type MQTTEvent = 'message' | 'connect' | 'error' | 'close';
 
@@ -14,38 +20,41 @@ jest.mock('mqtt', () => {
     close: [],
   };
 
-  const mockClient: Partial<MqttClient> & {
-    __handlers: HandlerMap;
-    triggerEvent: (event: MQTTEvent, ...args: any[]) => void;
-  } = {
-    on(event: MQTTEvent, handler: (...args: any[]) => void) {
+  const mockClient = {
+    on(event: MQTTEvent, handler: (...args: any[]) => void): MqttClient {
       handlers[event].push(handler);
-      return this as MqttClient;
+      return mockClient as unknown as MqttClient;
     },
+
     publish(
       topic: string,
       message: string | Buffer,
       options?: IClientPublishOptions,
       callback?: PacketCallback,
-    ) {
-      if (callback) callback();
-      return this as MqttClient;
+    ): MqttClient {
+      if (typeof options === 'function') {
+        options(); // options used as callback
+      } else if (callback) {
+        callback();
+      }
+      return mockClient as unknown as MqttClient;
     },
+
     subscribe(
-      topic: string,
-      options?: any,
+      topic: string | string[],
+      options?: IClientSubscribeOptions | ClientSubscribeCallback,
       callback?: ClientSubscribeCallback,
-    ) {
+    ): MqttClient {
       if (typeof options === 'function') {
         options(null, []);
       } else if (typeof callback === 'function') {
         callback(null, []);
       }
-      return this as MqttClient;
+      return mockClient as unknown as MqttClient;
     },
+
     end: jest.fn(),
     connected: true,
-    __handlers: handlers,
     triggerEvent(event: MQTTEvent, ...args: any[]) {
       handlers[event].forEach(fn => fn(...args));
     },
