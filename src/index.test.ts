@@ -1,7 +1,3 @@
-import { MqttClient } from 'mqtt';
-import { mocked } from 'ts-jest/utils';
-
-// Set test environment
 jest.mock('dotenv', () => ({
   config: jest.fn(() => {
     process.env.MQTT_BROKER_URL = 'mqtt://test-broker:1883';
@@ -14,11 +10,8 @@ jest.mock('dotenv', () => ({
   }),
 }));
 
-// Define allowed events
 type HandlerEvent = 'connect' | 'message' | 'error' | 'close';
-type HandlerMap = {
-  [K in HandlerEvent]: ((...args: any[]) => void)[];
-};
+type HandlerMap = { [K in HandlerEvent]: ((...args: any[]) => void)[] };
 
 const handlers: HandlerMap = {
   connect: [],
@@ -27,7 +20,7 @@ const handlers: HandlerMap = {
   close: [],
 };
 
-const mockClient = {
+const mockClient: any = {
   on: jest.fn((event: HandlerEvent, handler: (...args: any[]) => void) => {
     handlers[event].push(handler);
     return mockClient;
@@ -37,16 +30,15 @@ const mockClient = {
       if (typeof options === 'function') options(null);
       if (typeof callback === 'function') callback(null);
       return { messageId: '123' };
-    },
+    }
   ),
   subscribe: jest.fn((topic: string | string[], callback?: any) => {
     if (callback) callback(null, []);
   }),
   end: jest.fn(),
   connected: true,
-  __handlers: handlers,
   triggerEvent: (event: HandlerEvent, ...args: any[]) => {
-    handlers[event].forEach(h => h(...args));
+    handlers[event].forEach(handler => handler(...args));
   },
 };
 
@@ -63,11 +55,9 @@ beforeEach(() => {
 afterEach(() => {
   try {
     const { __test__ } = require('./index');
-    if (__test__?.mqttClient?.stopPolling) {
-      __test__.mqttClient.stopPolling();
-    }
+    __test__?.mqttClient?.stopPolling?.();
   } catch {
-    // Testmodul evtl. nicht geladen
+    // still ok
   }
   jest.clearAllTimers();
   jest.useRealTimers();
@@ -106,8 +96,7 @@ describe('MQTT Client', () => {
     mockClient.triggerEvent('message', 'hame_energy/HMA-1/device/test123/ctrl', message);
 
     const calls = mockClient.publish.mock.calls;
-    const [topic, payload]: [string, string] =
-      calls.find(([t]: [string]) => t.includes('/data')) ?? ['', ''];
+    const [topic, payload]: [string, string] = calls.find(([t]) => t.includes('/data')) ?? ['', ''];
 
     expect(topic).toContain('/data');
     expect(payload).toContain('"batteryPercentage":85');
