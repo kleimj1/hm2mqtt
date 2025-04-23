@@ -96,8 +96,8 @@ describe('MQTT Client', () => {
     mockClient.triggerEvent('message', 'hame_energy/HMA-1/device/test123/ctrl', message);
 
     const calls = mockClient.publish.mock.calls;
-    const [topic, payload]: [string, string] = calls.find(([t]) => t.includes('/data')) ?? ['', ''];
-
+    const dataCall = calls.find((call: [string, string]) => call[0].includes('/data')) ?? ['', ''];
+    const [topic, payload] = dataCall;
     expect(topic).toContain('/data');
     expect(payload).toContain('"batteryPercentage":85');
   });
