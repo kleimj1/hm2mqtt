@@ -65,15 +65,15 @@ function applyMessageDefinition<T extends BaseDeviceData>(
   fields: FieldDefinition<VenusDeviceData, KeyPath<VenusDeviceData>>[],
 ): void {
   const keyAliases: Record<string, KeyPath<T>> = {
-    pe: ['batteryPercentage'] as KeyPath<T>,
-    kn: ['batteryCapacity'] as KeyPath<T>,
-    w1: ['solarPower', 'input1'] as KeyPath<T>,
-    w2: ['solarPower', 'input2'] as KeyPath<T>,
-    g1: ['gridPower', 'input1'] as KeyPath<T>,
-    g2: ['gridPower', 'input2'] as KeyPath<T>,
-    tl: ['temperature', 'low'] as KeyPath<T>,
-    th: ['temperature', 'high'] as KeyPath<T>,
-    do: ['depthOfDischarge'] as KeyPath<T>,
+    pe: ['batteryPercentage'] as unknown as KeyPath<T>,
+    kn: ['batteryCapacity'] as unknown as KeyPath<T>,
+    w1: ['solarPower', 'input1'] as unknown as KeyPath<T>,
+    w2: ['solarPower', 'input2'] as unknown as KeyPath<T>,
+    g1: ['gridPower', 'input1'] as unknown as KeyPath<T>,
+    g2: ['gridPower', 'input2'] as unknown as KeyPath<T>,
+    tl: ['temperature', 'low'] as unknown as KeyPath<T>,
+    th: ['temperature', 'high'] as unknown as KeyPath<T>,
+    do: ['depthOfDischarge'] as unknown as KeyPath<T>,
   };
 
   for (const field of fields) {
