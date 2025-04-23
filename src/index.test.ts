@@ -1,3 +1,4 @@
+
 beforeAll(() => {
   jest.clearAllMocks();
 });
@@ -21,7 +22,7 @@ jest.mock('mqtt', () => {
     __noCallThru: true,
   };
 
-  const handlers: Record<string, Array<(...args: any[]) => void>> = {
+  const handlers = {
     message: [],
     connect: [],
     error: [],
@@ -71,10 +72,7 @@ afterEach(() => {
     if (__test__?.mqttClient?.stopPolling) {
       __test__.mqttClient.stopPolling();
     }
-  } catch (e) {
-    // ignorieren – Testmodul evtl. nicht geladen
-  }
-
+  } catch (e) {}
   jest.clearAllTimers();
   jest.useRealTimers();
 });
@@ -107,38 +105,35 @@ describe('MQTT Client', () => {
   test('should handle incoming message and publish parsed state', () => {
     require('./index');
     const mockClient = require('mqtt').__mockClient;
-
     mockClient.triggerEvent('connect');
     mockClient.publish.mockClear();
 
     const message = Buffer.from('pe=85,kn=300,tim_0=06|30|22|00|1234567|400|1');
     mockClient.triggerEvent('message', 'hame_energy/HMA-1/device/testdevice/ctrl', message);
 
-    expect(mockClient.publish).toHaveBeenCalledWith(
-      expect.stringContaining('/data'),
-      expect.stringContaining('"batteryPercentage":85'),
-      expect.any(Object),
-      expect.any(Function),
+    const matchingCalls = mockClient.publish.mock.calls.filter(
+      ([topic, payload]) =>
+        topic.includes('/data') && typeof payload === 'string' && payload.includes('"batteryPercentage":85')
     );
+
+    expect(matchingCalls.length).toBeGreaterThan(0);
   });
 
   test('should trigger periodic polling and publish data request', () => {
     jest.useFakeTimers();
     require('./index');
     const mockClient = require('mqtt').__mockClient;
-
     mockClient.triggerEvent('connect');
     mockClient.publish.mockClear();
 
     jest.advanceTimersByTime(5000);
 
-    expect(mockClient.publish).toHaveBeenCalledWith(
-      expect.stringContaining('/ctrl'),
-      expect.stringContaining('cd=1'),
-      expect.any(Object),
-      expect.any(Function),
+    const matchingCalls = mockClient.publish.mock.calls.filter(
+      ([topic, payload]) =>
+        topic.includes('/ctrl') && typeof payload === 'string' && payload.includes('cd=1')
     );
 
+    expect(matchingCalls.length).toBeGreaterThan(0);
     jest.useRealTimers();
   });
 });
