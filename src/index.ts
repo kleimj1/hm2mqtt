@@ -292,7 +292,17 @@ try {
   // Exit with error code
   process.exit(1);
 }
-
+// Export wichtige Instanzen für Unit-Tests
+if (process.env.NODE_ENV === 'test') {
+  module.exports.__test__ = {
+    get mqttClient() {
+      return mqttClient;
+    },
+    get deviceManager() {
+      return deviceManager;
+    }
+  };
+}
 // Log uncaught exceptions
 process.on('uncaughtException', error => {
   console.error('Uncaught exception:', error);
