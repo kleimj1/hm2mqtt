@@ -1,3 +1,4 @@
+
 import { jest } from '@jest/globals';
 import './device/venus';
 
@@ -73,15 +74,20 @@ describe('MQTT Client for HMG (Venus)', () => {
 
     client.triggerEvent('connect');
 
-    const message = Buffer.from('cd=1,batterySoc=70,bms_voltage=5223,cel_p=300');
+    const message = Buffer.from(
+      'cd=1,cel_p=300,cel_c=60,tot_i=1200,tot_o=800,ele_d=100,ele_m=500,' +
+      'grd_d=150,grd_m=600,inc_d=10,inc_m=40,inc_a=200,grd_f=50,grd_o=300,' +
+      'grd_t=3,gct_s=1,cel_s=3,err_t=0,err_a=0,dev_n=149,grd_y=0,wor_m=0'
+    );
     client.triggerEvent('message', 'hm2mqtt/HMG/device/testHMG/data', message);
 
     const calls = client.publish.mock.calls;
     const [topic, payload]: [string, string] = calls.find(([t]: [string, string]) => t.includes('/data')) ?? ['', ''];
 
     expect(topic).toContain('/data');
-    expect(payload).toContain('"batterySoc":70');
-    expect(payload).toContain('"bms_voltage":5223');
+    expect(payload).toContain('"batteryCapacity":3000');
+    expect(payload).toContain('"batterySoc":60');
+    expect(payload).toContain('"totalChargingCapacity":12');
   });
 
   test('should trigger periodic polling with cd=1', () => {
