@@ -1,21 +1,19 @@
-import { jest } from '@jest/globals';
-import type { MqttClient } from 'mqtt';
+import { MqttClient } from 'mqtt';
 
 type HandlerEvent = 'connect' | 'message' | 'error' | 'close';
-type HandlerMap = Record<HandlerEvent, Array<(...args: any[]) => void>>;
 
 interface MockMqttClient extends Partial<MqttClient> {
-  on: jest.Mock;
-  publish: jest.Mock;
-  subscribe: jest.Mock;
-  end: jest.Mock;
+  on: jest.Mock<any, any>;
+  publish: jest.Mock<any, any>;
+  subscribe: jest.Mock<any, any>;
+  end: jest.Mock<any, any>;
   connected: boolean;
   triggerEvent: (event: HandlerEvent, ...args: any[]) => void;
 }
 
-const handlers: HandlerMap = {
-  message: [],
+const handlers: Record<HandlerEvent, Array<(...args: any[]) => void>> = {
   connect: [],
+  message: [],
   error: [],
   close: [],
 };
@@ -34,11 +32,13 @@ const mockClient: MockMqttClient = {
     return { messageId: '123' };
   }),
   subscribe: jest.fn((topic: string | string[], callback?: any) => {
-    if (callback) callback(null, []);
+    if (typeof callback === 'function') {
+      callback(null, []);
+    }
   }),
   end: jest.fn(),
   connected: true,
-  triggerEvent: (event: HandlerEvent, ...args: any[]) => {
+  triggerEvent(event: HandlerEvent, ...args: any[]) {
     handlers[event].forEach(handler => handler(...args));
   },
 };
@@ -56,6 +56,7 @@ jest.mock('dotenv', () => ({
     process.env.MQTT_PASSWORD = 'testpass';
     process.env.DEVICE_1 = 'HMA-1:testdevice';
     process.env.MQTT_POLLING_INTERVAL = '5000';
+    process.env.NODE_ENV = 'test';
   }),
 }));
 
@@ -71,18 +72,23 @@ afterEach(() => {
       __test__.mqttClient.stopPolling();
     }
   } catch {
-    // ignorieren
+    // Testmodul evtl. nicht geladen
   }
 
   jest.clearAllTimers();
   jest.useRealTimers();
 });
 
+afterAll(() => {
+  jest.restoreAllMocks();
+  jest.resetModules();
+});
+
 describe('MQTT Client', () => {
   test('should initialize MQTT client with correct options', () => {
     require('./index');
-    const mqttMock = require('mqtt');
-    expect(mqttMock.connect).toHaveBeenCalledWith(
+    const mqtt = require('mqtt');
+    expect(mqtt.connect).toHaveBeenCalledWith(
       'mqtt://test-broker:1883',
       expect.objectContaining({
         clientId: 'test-client',
@@ -95,7 +101,6 @@ describe('MQTT Client', () => {
 
   test('should subscribe to device topics on connect', () => {
     require('./index');
-    const mockClient = require('mqtt').__mockClient;
     mockClient.triggerEvent('connect');
     expect(mockClient.subscribe).toHaveBeenCalledWith(
       expect.stringContaining('device/testdevice/ctrl'),
@@ -105,8 +110,6 @@ describe('MQTT Client', () => {
 
   test('should handle incoming message and publish parsed state', () => {
     require('./index');
-    const mockClient = require('mqtt').__mockClient;
-
     mockClient.triggerEvent('connect');
     mockClient.publish.mockClear();
 
@@ -114,9 +117,8 @@ describe('MQTT Client', () => {
     mockClient.triggerEvent('message', 'hame_energy/HMA-1/device/testdevice/ctrl', message);
 
     const calls = mockClient.publish.mock.calls;
-    expect(calls.length).toBeGreaterThan(0);
-
     const [topic, payload]: [string, string] = calls.find(([t]) => t.includes('/data')) ?? [];
+
     expect(topic).toContain('/data');
     expect(payload).toContain('"batteryPercentage":85');
   });
@@ -124,25 +126,17 @@ describe('MQTT Client', () => {
   test('should trigger periodic polling and publish data request', () => {
     jest.useFakeTimers();
     require('./index');
-    const mockClient = require('mqtt').__mockClient;
-
     mockClient.triggerEvent('connect');
     mockClient.publish.mockClear();
 
     jest.advanceTimersByTime(5000);
 
-    const call = mockClient.publish.mock.calls.find(
+    const wasCalled = mockClient.publish.mock.calls.some(
       ([topic, message]: [string, string]) =>
         topic.includes('/ctrl') && message.includes('cd=1'),
     );
 
-    expect(call).toBeDefined();
-
+    expect(wasCalled).toBe(true);
     jest.useRealTimers();
   });
-});
-
-afterAll(() => {
-  jest.clearAllTimers();
-  jest.restoreAllMocks();
 });
