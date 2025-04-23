@@ -1,51 +1,46 @@
-import type { MqttClient, IClientPublishOptions, PacketCallback, ClientSubscribeCallback } from 'mqtt';
-
-type MQTTEvent = 'message' | 'connect' | 'error' | 'close';
-
-type HandlerMap = Record<MQTTEvent, Array<(...args: any[]) => void>>;
-
 jest.mock('mqtt', () => {
-  const handlers: HandlerMap = {
+  const mockClient = {
+    on: jest.fn(),
+    publish: jest.fn((topic, message, options, callback) => {
+      if (typeof options === 'function') {
+        options(null);
+      } else if (typeof callback === 'function') {
+        callback(null);
+      }
+      return { messageId: '123' };
+    }),
+    subscribe: jest.fn((topic, callback) => {
+      if (callback) callback(null, []);
+    }),
+    end: jest.fn(),
+    connected: true,
+    __noCallThru: true,
+  };
+
+  const handlers: Record<string, Array<(...args: any[]) => void>> = {
     message: [],
     connect: [],
     error: [],
     close: [],
   };
 
-  const mockClient: Partial<MqttClient> & {
-    __handlers: HandlerMap;
-    triggerEvent: (event: MQTTEvent, ...args: any[]) => void;
-  } = {
-    on(event: MQTTEvent, handler: (...args: any[]) => void) {
+  mockClient.on.mockImplementation((event, handler) => {
+    if (handlers[event]) {
       handlers[event].push(handler);
-      return this as unknown as MqttClient;
-    },
+    }
+    return mockClient;
+  });
 
-    publish(topic: string, message: string | Buffer, optionsOrCallback?: any, maybeCallback?: any) {
-      const callback = typeof optionsOrCallback === 'function' ? optionsOrCallback : maybeCallback;
-      if (callback) callback(null);
-      return this as unknown as MqttClient;
-    },
-
-    subscribe(topic: string | string[], optionsOrCallback?: any, maybeCallback?: any) {
-      const callback = typeof optionsOrCallback === 'function' ? optionsOrCallback : maybeCallback;
-      if (callback) callback(null, [{ topic: 'test', qos: 0 }]);
-      return this as unknown as MqttClient;
-    },
-
-    end: jest.fn(),
-    connected: true,
-
-    triggerEvent(event: MQTTEvent, ...args: any[]) {
-      handlers[event].forEach(fn => fn(...args));
-    },
-
-    __handlers: handlers,
+  (mockClient as any).triggerEvent = (event: string, ...args: any[]) => {
+    if (handlers[event]) {
+      handlers[event].forEach(handler => handler(...args));
+    }
   };
 
   return {
     connect: jest.fn(() => mockClient),
     __mockClient: mockClient,
+    __handlers: handlers,
   };
 });
 
@@ -60,21 +55,12 @@ jest.mock('dotenv', () => ({
   }),
 }));
 
-beforeAll(() => {
-  jest.useFakeTimers();
-});
-
-afterAll(() => {
-  jest.useRealTimers();
-  jest.clearAllTimers();
+beforeEach(() => {
+  jest.clearAllMocks();
+  jest.resetModules();
 });
 
 describe('MQTT Client', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    jest.resetModules();
-  });
-
   test('should initialize MQTT client with correct options', () => {
     require('./index');
     const mqttMock = require('mqtt');
@@ -94,21 +80,51 @@ describe('MQTT Client', () => {
     const mockClient = require('mqtt').__mockClient;
     mockClient.triggerEvent('connect');
     expect(mockClient.subscribe).toHaveBeenCalledWith(
-      expect.stringContaining('hame_energy/HMA-1/device/testdevice/ctrl'),
+      expect.stringContaining('device/testdevice/ctrl'),
       expect.any(Function),
     );
   });
 
-  test('should handle periodic polling', () => {
+  test('should handle incoming message and publish parsed state', () => {
     require('./index');
     const mockClient = require('mqtt').__mockClient;
+
     mockClient.triggerEvent('connect');
-    jest.advanceTimersByTime(5000);
+    mockClient.publish.mockClear();
+
+    const message = Buffer.from('pe=85,kn=300,tim_0=06|30|22|00|1234567|400|1');
+    mockClient.triggerEvent('message', 'hame_energy/HMA-1/device/testdevice/ctrl', message);
+
     expect(mockClient.publish).toHaveBeenCalledWith(
-      expect.stringContaining('hame_energy/HMA-1/App/testdevice/ctrl'),
-      expect.stringContaining('cd=1'),
+      expect.stringContaining('/data'),
+      expect.stringContaining('"batteryPercentage":85'),
       expect.any(Object),
       expect.any(Function),
     );
   });
+
+  test('should trigger periodic polling and publish data request', () => {
+    jest.useFakeTimers();
+    require('./index');
+    const mockClient = require('mqtt').__mockClient;
+
+    mockClient.triggerEvent('connect');
+    mockClient.publish.mockClear();
+
+    jest.advanceTimersByTime(5000);
+
+    expect(mockClient.publish).toHaveBeenCalledWith(
+      expect.stringContaining('/ctrl'),
+      expect.stringContaining('cd=1'),
+      expect.any(Object),
+      expect.any(Function),
+    );
+
+    jest.useRealTimers();
+  });
+});
+
+afterAll(() => {
+  jest.clearAllTimers();
+  jest.restoreAllMocks();
 });
