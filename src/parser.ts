@@ -60,9 +60,9 @@ export function parseMessage(
 }
 
 function applyMessageDefinition<T extends BaseDeviceData>(
-  parsedData: T,
+  parsedData: VenusDeviceData,
   values: Record<string, string>,
-  fields: FieldDefinition<T, KeyPath<T>>[],
+  fields: FieldDefinition<VenusDeviceData, KeyPath<VenusDeviceData>>[],
 ): void {
   const keyAliases: Record<string, KeyPath<T>> = {
     pe: ['batteryPercentage'] as KeyPath<T>,
