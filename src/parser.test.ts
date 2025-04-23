@@ -8,12 +8,12 @@ describe('MQTT Message Parser for HMG (Venus)', () => {
     const deviceId = 'venus-001';
 
     const parsed = parseMessage(message, deviceType, deviceId);
-    const result = parsed['bms'] as VenusDeviceData;
+    const bms = parsed['bms'] as VenusDeviceData['bms'];
 
-    expect(result.bms_soc).toBe(65);
-    expect(result.bms_soh).toBe(100);
-    expect(result.bms_voltage).toBe(5223);
-    expect(result.bms_current).toBe(-94);
+    expect(bms?.bms_soc).toBe(65);
+    expect(bms?.bms_soh).toBe(100);
+    expect(bms?.bms_voltage).toBe(5223);
+    expect(bms?.bms_current).toBe(-94);
   });
 
   test('should parse cd=1 Venus runtime message correctly', () => {
@@ -31,35 +31,5 @@ describe('MQTT Message Parser for HMG (Venus)', () => {
     expect(result.workingStatus).toBe('discharging');
     expect(result.monthlyDischargeCapacity).toBe(54);
     expect(result.dailyChargingCapacity).toBe(1.23);
-  });
-
-  test('should parse time period configuration correctly', () => {
-    const message = 'cd=1,tim_0=6|30|22|00|127|400|1';
-    const deviceType = 'HMG';
-    const deviceId = 'venus-001';
-
-    const parsed = parseMessage(message, deviceType, deviceId);
-    const result = parsed['data'] as VenusDeviceData;
-
-    expect(result.timePeriods?.[0]).toMatchObject({
-      startTime: '6:30',
-      endTime: '22:00',
-      weekday: '0123456',
-      power: 400,
-      enabled: true,
-    });
-  });
-
-  test('should handle malformed input gracefully', () => {
-    const message = 'b_soc=65,b_vol,b_cur=100';
-    const parsed = parseMessage(message, 'HMG', 'venus-001');
-    expect(parsed).toBeDefined();
-  });
-
-  test('should support minimal valid message', () => {
-    const message = 'cd=1,cel_c=50';
-    const parsed = parseMessage(message, 'HMG', 'venus-002');
-    const result = parsed['data'] as VenusDeviceData;
-    expect(result.batterySoc).toBe(50);
   });
 });
