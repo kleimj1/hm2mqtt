@@ -44,7 +44,7 @@ jest.mock('dotenv', () => ({
     process.env.MQTT_CLIENT_ID = 'test-client';
     process.env.MQTT_USERNAME = 'testuser';
     process.env.MQTT_PASSWORD = 'testpass';
-    process.env.DEVICE_1 = 'HMA-1:test123';
+    process.env.DEVICE_1 = 'HMG:testHMG';
     process.env.MQTT_POLLING_INTERVAL = '5000';
     process.env.NODE_ENV = 'test';
   }),
@@ -64,25 +64,26 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-describe('MQTT Client', () => {
-  test('should publish device data after receiving a message', () => {
+describe('MQTT Client for HMG (Venus)', () => {
+  test('should publish device data after receiving a cd=1 message', () => {
     require('./index');
     const mqttMock = require('mqtt');
     const client = mqttMock.__mockClient;
 
     client.triggerEvent('connect');
 
-    const message = Buffer.from('pe=85,kn=300,tim_0=06|30|22|00|1234567|400|1');
-    client.triggerEvent('message', 'hame_energy/HMA-1/device/test123/ctrl', message);
+    const message = Buffer.from('cd=1,batterySoc=70,bms_voltage=5223,cel_p=300');
+    client.triggerEvent('message', 'hm2mqtt/HMG/device/testHMG/data', message);
 
     const calls = client.publish.mock.calls;
     const [topic, payload]: [string, string] = calls.find(([t]: [string, string]) => t.includes('/data')) ?? ['', ''];
 
     expect(topic).toContain('/data');
-    expect(payload).toContain('"batteryPercentage":85'); // Erwarteter Key in geparstem JSON
+    expect(payload).toContain('"batterySoc":70');
+    expect(payload).toContain('"bms_voltage":5223');
   });
 
-  test('should trigger periodic polling and publish data request', () => {
+  test('should trigger periodic polling with cd=1', () => {
     require('./index');
     const mqttMock = require('mqtt');
     const client = mqttMock.__mockClient;
@@ -94,8 +95,7 @@ describe('MQTT Client', () => {
 
     const calls = client.publish.mock.calls;
     const wasCalled = calls.some(
-      ([topic, message]: [string, string]) =>
-        topic.includes('/ctrl') && message.includes('cd=1')
+      ([topic, message]: [string, string]) => topic.includes('/ctrl') && message.includes('cd=1')
     );
 
     expect(wasCalled).toBe(true);
