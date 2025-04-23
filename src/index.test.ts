@@ -1,5 +1,5 @@
+import { MqttClient as RealMqttClient } from 'mqtt';
 import type {
-  MqttClient,
   IClientPublishOptions,
   PacketCallback,
   IClientSubscribeOptions,
@@ -20,13 +20,10 @@ jest.mock('mqtt', () => {
     close: [],
   };
 
-  const mockClient: Partial<MqttClient> & {
-    __handlers: HandlerMap;
-    triggerEvent: (event: MQTTEvent, ...args: any[]) => void;
-  } = {
+  const mockClient = {
     on(event: MQTTEvent, handler: (...args: any[]) => void) {
       handlers[event].push(handler);
-      return this as unknown as MqttClient;
+      return mockClient;
     },
     publish(
       topic: string,
@@ -34,8 +31,12 @@ jest.mock('mqtt', () => {
       options?: IClientPublishOptions,
       callback?: PacketCallback,
     ) {
-      if (callback) callback();
-      return this as unknown as MqttClient;
+      if (typeof options === 'function') {
+        options(); // callback wurde als 3. Argument übergeben
+      } else if (typeof callback === 'function') {
+        callback();
+      }
+      return mockClient;
     },
     subscribe(
       topic: string | string[],
@@ -44,7 +45,7 @@ jest.mock('mqtt', () => {
     ) {
       const cb = typeof options === 'function' ? options : callback;
       if (cb) cb(null, [{ topic: typeof topic === 'string' ? topic : topic[0], qos: 0 }]);
-      return this as unknown as MqttClient;
+      return mockClient;
     },
     end: jest.fn(),
     connected: true,
