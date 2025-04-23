@@ -71,45 +71,36 @@ function applyMessageDefinition<T extends BaseDeviceData>(
     w2: ['solarPower', 'input2'] as KeyPath<T>,
     g1: ['gridPower', 'input1'] as KeyPath<T>,
     g2: ['gridPower', 'input2'] as KeyPath<T>,
-    // Weitere Aliase hinzufügen
+    tl: ['temperature', 'low'] as KeyPath<T>,
+    th: ['temperature', 'high'] as KeyPath<T>,
+    do: ['depthOfDischarge'] as KeyPath<T>,
   };
 
   for (const field of fields) {
-    let key = field.key;
+    const key = field.key;
     const transform = field.transform ?? transformNumber;
 
     if (typeof key === 'string') {
       const value = values[key];
-      const path = keyAliases[key] ?? field.path; // ✨ Priorität für Aliase
+      const aliasPath = keyAliases[key] ?? field.path;
 
       if (value != null) {
         const transformedValue = transform(value);
-        setValueAtPath(parsedData, path, transformedValue);
-      }
-    }
-  for (const field of fields) {
-    let key = field.key;
-    if (typeof key === 'string') {
-      let transform = field.transform ?? transformNumber;
-      let value = values[key];
-      if (value != null) {
-        const transformedValue = transform(value);
-        setValueAtPath(parsedData, field.path, transformedValue);
+        setValueAtPath(parsedData, aliasPath, transformedValue);
       }
     } else if (field.transform != null) {
-      let entries = key.map(key => [key, values[key]] as const);
-      if (entries.every(([, value]) => value !== undefined)) {
+      const entries = key.map(k => [k, values[k]] as const);
+      if (entries.every(([, val]) => val !== undefined)) {
         const transformedValue = field.transform(Object.fromEntries(entries));
         setValueAtPath(parsedData, field.path, transformedValue);
       } else {
-        console.warn(`Some values are missing for field ${field.path.join('.')}`);
+        console.warn(`Missing values for compound field: ${field.path.join('.')}`);
       }
     } else {
-      console.warn(`No transform function provided for field ${field.path.join('.')}`);
+      console.warn(`No transform for compound field: ${field.path.join('.')}`);
     }
   }
 }
-
 /**
  * Set a value at a specific path in an object
  *
